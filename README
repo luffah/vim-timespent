@@ -1,0 +1,22 @@
+    
+     A timespent report :
+     03:56:58 || 20200301 20:03:01 -> 20200301 20:12:11 | 20201211 20:12:11 -> 20201211 23:59:59 |
+    
+
+** timespent.vim -- Vim tool for fast time tracking **
+
+License:     AGPLv3 (see https://www.gnu.org/licenses/agpl-3.0.txt)
+Last Change: 2020-12-11
+
+
+### HOW TO USE IT ?
+*AddTimeSpent*
+    add/update datetime on current line.
+    (jump to next line with a different content is found)
+
+*CloseTimeSpent*
+    add end datetime (if not found) on current line and
+    update duration.
+
+*StopTimeSpentAll*
+    apply CloseTimeSpent on all lines of the current file

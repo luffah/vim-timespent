@@ -1,0 +1,50 @@
+*timespent.vim*    Vim tool for fast time tracking
+                                                                   *timespent*
+ >
+    
+     A timespent report :
+     03:56:58 || 20200301 20:03:01 -> 20200301 20:12:11 | 20201211 20:12:11 -> 20201211 23:59:59 |
+    
+<
+License:     AGPLv3 (see https://www.gnu.org/licenses/agpl-3.0.txt)
+Author(s):   luffah (luffah AT runbox com)
+Revision:    1
+Last Change: 2020-12-11
+==============================================================================
+CONTENTS                                                  *timespent-contents*
+
+1. Commands                                               |timespent-commands|
+2. Globals                                                 |timespent-globals|
+
+==============================================================================
+COMMANDS                                                  *timespent-commands*
+
+*AddTimeSpent*
+    add/update datetime on current line.
+    (jump to next line with a different content is found)
+
+*CloseTimeSpent*
+    add end datetime (if not found) on current line and
+    update duration.
+
+*StopTimeSpentAll*
+    apply CloseTimeSpent on all lines of the current file
+
+
+==============================================================================
+GLOBALS                                                    *timespent-globals*
+
+*g:timespentDateFormat*
+    Date/time format using %y %Y %m %d %H %M %S
+    default : %Y%m%d  %H:%M:%S
+
+*g:timespentTimeFormat*
+    Total time format using %H %M %S
+    default : %H:%M:%S
+    
+        %Ss  If you want to see seconds only
+        590s || 20200301 20:03:01 -> 20200301 20:12:51 |
+        %H   If you want to see hours only, you shall know the value is truncated
+        0 || 20200301 20:03:01 -> 20200301 20:52:51 |
+
+vim:tw=78:ts=8:ft=help:norl:

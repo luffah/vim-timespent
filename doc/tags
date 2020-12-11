@@ -1,0 +1,10 @@
+AddTimeSpent	timespent.txt	/*AddTimeSpent*
+CloseTimeSpent	timespent.txt	/*CloseTimeSpent*
+StopTimeSpentAll	timespent.txt	/*StopTimeSpentAll*
+g:timespentDateFormat	timespent.txt	/*g:timespentDateFormat*
+g:timespentTimeFormat	timespent.txt	/*g:timespentTimeFormat*
+timespent	timespent.txt	/*timespent*
+timespent-commands	timespent.txt	/*timespent-commands*
+timespent-contents	timespent.txt	/*timespent-contents*
+timespent-globals	timespent.txt	/*timespent-globals*
+timespent.vim	timespent.txt	/*timespent.vim*
