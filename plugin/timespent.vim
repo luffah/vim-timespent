@@ -2,8 +2,10 @@
 " @Author:      luffah (luffah AT runbox com)
 " @License:     AGPLv3 (see https://www.gnu.org/licenses/agpl-3.0.txt)
 " @Created:     2020-12-11
-" @Last Change: 2020-12-11
+" @Last Change: 2020-12-12
 " @Revision:    1
+" @Files
+"   ./timespent/convert/timewarrior.vim
 "
 " @AsciiArt
 "
@@ -142,3 +144,21 @@ fu! s:add_timespent(i)
   endif
   call s:update_timespent(l:i)
 endfu
+
+" Utilities
+"
+" @function timespent#ftime(year,month,day,hours,minutes,seconds)
+" return formatted date as specified in |g:timespentDateFormat|
+"
+fu! timespent#ftime(year,month,day,hours,minutes,seconds)
+    let l:ret=s:datetimeFormat
+    let l:ret=substitute(l:ret,'%Y', printf("%04d", a:year), '')
+    let l:ret=substitute(l:ret,'%y', printf("%02d", a:year % 100), '')
+    let l:ret=substitute(l:ret,'%m', printf("%02d", a:month), '')
+    let l:ret=substitute(l:ret,'%d', printf("%02d", a:day), '')
+    let l:ret=substitute(l:ret,'%H', printf("%02d", a:hours), '')
+    let l:ret=substitute(l:ret,'%M', printf("%02d", a:minutes), '')
+    let l:ret=substitute(l:ret,'%S', printf("%02d", a:seconds), '')
+    return l:ret
+endfu
+

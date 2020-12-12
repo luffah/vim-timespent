@@ -4,7 +4,10 @@ StopTimeSpentAll	timespent.txt	/*StopTimeSpentAll*
 g:timespentDateFormat	timespent.txt	/*g:timespentDateFormat*
 g:timespentTimeFormat	timespent.txt	/*g:timespentTimeFormat*
 timespent	timespent.txt	/*timespent*
+timespent#convert#timewarrior#from_data()	timespent.txt	/*timespent#convert#timewarrior#from_data()*
+timespent#ftime()	timespent.txt	/*timespent#ftime()*
 timespent-commands	timespent.txt	/*timespent-commands*
 timespent-contents	timespent.txt	/*timespent-contents*
+timespent-functions	timespent.txt	/*timespent-functions*
 timespent-globals	timespent.txt	/*timespent-globals*
 timespent.vim	timespent.txt	/*timespent.vim*

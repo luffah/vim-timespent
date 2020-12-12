@@ -9,12 +9,28 @@
 License:     AGPLv3 (see https://www.gnu.org/licenses/agpl-3.0.txt)
 Author(s):   luffah (luffah AT runbox com)
 Revision:    1
-Last Change: 2020-12-11
+Last Change: 2020-12-12
 ==============================================================================
 CONTENTS                                                  *timespent-contents*
 
-1. Commands                                               |timespent-commands|
-2. Globals                                                 |timespent-globals|
+1. Functions                                             |timespent-functions|
+2. Commands                                               |timespent-commands|
+3. Globals                                                 |timespent-globals|
+
+==============================================================================
+FUNCTIONS                                                *timespent-functions*
+
+timespent#ftime(year,month,day,hours,minutes,seconds)     *timespent#ftime()*
+    return formatted date as specified in |g:timespentDateFormat|
+    
+
+timespent#convert#timewarrior#from_data()
+                                   *timespent#convert#timewarrior#from_data()*
+    Allow to import timewarrior datas with a copy/paste.
+    Select the datas, and type :call timespent#convert#timewarrior#from_data()
+    and the datas will take the format used by the timespent tool.
+    
+
 
 ==============================================================================
 COMMANDS                                                  *timespent-commands*
