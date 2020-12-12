@@ -1,34 +1,115 @@
 *timespent.vim*    Vim tool for fast time tracking
                                                                    *timespent*
  >
+
     
-     A timespent report :
-     03:56:58 || 20200301 20:03:01 -> 20200301 20:12:11 | 20201211 20:12:11 -> 20201211 23:59:59 |
-    
+     mmmmmmmmm
+      l     l
+      l ### l
+      l  '  l
+      l  '  l
+      l#####l
+     mmmmmmmmm
+
 <
 License:     AGPLv3 (see https://www.gnu.org/licenses/agpl-3.0.txt)
 Author(s):   luffah (luffah AT runbox com)
-Revision:    1
-Last Change: 2020-12-11
+Revision:    2
+Last Change: 2022-01-25
+
+
+ This plugin allow to track time. You can choose various settings like
+ formats and rounding. See the following documentation for more details.
+
+ Note : you need write setting in vimrc file and to restart Vim to apply
+
 ==============================================================================
 CONTENTS                                                  *timespent-contents*
 
-1. Commands                                               |timespent-commands|
-2. Globals                                                 |timespent-globals|
+1. Functions                                             |timespent-functions|
+2. Commands                                               |timespent-commands|
+3. Globals                                                 |timespent-globals|
+4. Examples                                               |timespent-examples|
+
+==============================================================================
+FUNCTIONS                                                *timespent-functions*
+
+timespent#total_time()                               *timespent#total_time()*
+    return formatted time of all timespent found in the buffer
+
+timespent#total_time_filtered([timefilter], [subjectfilter])
+                                             *timespent#total_time_filtered()*
+    return formatted time of all timespent found according a regexp filter
+
+timespent#total_time_today()                   *timespent#total_time_today()*
+    return formatted time of all timespent found today
+    (include time before midnight if hour < newDayHour)
+
+timespent#total_nth_day(nb_days, [end_offset=0], [week_mode=0])
+                                                   *timespent#total_nth_day()*
+    return formatted time of all timespent found from days
+
+timespent#total_previous_week()             *timespent#total_previous_week()*
+    return formatted time of all timespent previous week
+    = timespent#total_nth_day(0, 1, 1)
+
+timespent#total_this_week()                     *timespent#total_this_week()*
+    return formatted time of all timespent this week
+    = timespent#total_nth_day(0, 0, 1)
+
+timespent#ftime(year,month,day,hours,minutes,seconds)     *timespent#ftime()*
+    return formatted date as specified in |g:timespentDateFormat|
+
+
+timespent#convert#timewarrior#from_data()
+                                   *timespent#convert#timewarrior#from_data()*
+    Allow to import timewarrior datas with a copy/paste.
+    Select the datas, and type :call timespent#convert#timewarrior#from_data()
+    and the datas will take the format used by the timespent tool.
+
+
 
 ==============================================================================
 COMMANDS                                                  *timespent-commands*
 
-*AddTimeSpent*
-    add/update datetime on current line.
+*TimeSpentAdd*
+    add datetime on current line (or line number specified before).
     (jump to next line with a different content is found)
 
-*CloseTimeSpent*
+*TimeSpentExtend*
+    extend datetime on current line (or line number specified before).
+    (jump to next line with a different content is found)
+
+*TimeSpentClose*
     add end datetime (if not found) on current line and
     update duration.
 
-*StopTimeSpentAll*
-    apply CloseTimeSpent on all lines of the current file
+*TimeSpentStop*
+    close all timespent lines of the current file
+
+*TimeSpentUpdate*
+    update duration (with last format known)
+
+*TimeSpentUpdateTimeFormatFrom*
+    update timestamps from old format in parameter to new format known (from globals)
+
+*TimeSpentJumpOpenned*
+    Jump to any other timespent. (If used with a line number it will be included)
+
+*TimeSpentJumpLast*
+    Jump to the (chronologically) last timespent.
+
+*TimeSpentNext*
+    Jump to next timespent (If used with a line number it will be included)
+
+*TimeSpentPrev*
+    Jump to previous timespent (If used with a line number it will be included)
+
+*TimeSpentFinalize*
+    Finalize timespent (e.g. for mark it as reported)
+
+*TimeSpentUnFinalize*
+    unFinalize timespent (e.g. for unmark it as reported) to allow updates
 
 
 ==============================================================================
@@ -36,7 +117,15 @@ GLOBALS                                                    *timespent-globals*
 
 *g:timespentDateFormat*
     Date/time format using %y %Y %m %d %H %M %S
-    default : %Y%m%d  %H:%M:%S
+    default : '%Y%m%d  %H:%M:%S'
+
+*g:timespentNewDayHour*
+    Hour that separate two days. Required by timespent#total_time_today()
+    default : 6
+
+*g:timespentTotalTimeIncludeOpenned*
+    Boolean to include on going time report. Required by timespent#total_time_today()
+    default : 1 
 
 *g:timespentTimeFormat*
     Total time format using %H %M %S
@@ -46,5 +135,132 @@ GLOBALS                                                    *timespent-globals*
         590s || 20200301 20:03:01 -> 20200301 20:12:51 |
         %H   If you want to see hours only, you shall know the value is truncated
         0 || 20200301 20:03:01 -> 20200301 20:52:51 |
+
+*g:timespentDateRounding*
+    For a date (checkpoint), precise the rounding mode : second, minute, 5-minutes
+    default : 'second'
+
+*g:timespentTimeRounding*
+    For the time spent, precise the rounding mode : second, minute, 5-minutes, 15-minutes
+    default : 'second'
+
+*g:timespentTimeRoundingAtLeastFor_1_minute*
+    Precise the minimal time in seconds to declare 1 min
+    default : 30
+
+*g:timespentTimeRoundingAtLeastFor_5_minutes*
+    Precise the minimal time in seconds to declare 5 min
+    default : 120
+
+*g:timespentTimeRoundingAtLeastFor_15_minutes*
+    Precise the minimal time in seconds to declare 15 min
+    default : 300
+
+*g:timespentTimeTakingTime*
+    In seconds, time for marking time
+    default : 0
+
+
+==============================================================================
+EXAMPLES                                                  *timespent-examples*
+
+
+(In theses example the timesheet are written a .txt file )
+
+Setup your keys (some may appear useless to you, feel free to change keys):
+  (vimrc)
+  " to see the current <leader>, use : let mapleader
+
+  nnoremap <leader>r      :TimeSpentAdd<Cr>
+  nnoremap <leader><C-r>  :TimeSpentExtend<Cr>
+  nnoremap <leader>R      :TimeSpentClose<Cr>
+  nnoremap <leader>f      :TimeSpentFinalize<Cr>
+  vnoremap <leader>f      :TimeSpentFinalize<Cr>
+  nnoremap <leader>F      :TimeSpentUnFinalize<Cr>
+  vnoremap <leader>F      :TimeSpentUnFinalize<Cr>
+  nnoremap <leader><C-n>  :TimeSpentNext<Cr>
+  nnoremap <leader><C-p>  :TimeSpentPrevious<Cr>
+  nnoremap <leader><C-o>  :TimeSpentJumpOpenned<Cr>
+
+
+If you put your timesheets in a text file, it will look like:
+  (Text file)
+  01:08:10 || 20220125 20:03:01 -> 20220125 20:12:11 | 20220125 23:00:00 -> 20220125 23:59:00 |
+
+You may discover that you never start the timer before writing task title.
+
+To define how many seconds it takes for you to write the title of a task :
+  (vimrc)
+  let g:timespentTimeTakingTime = 30
+
+You may want to round time to 15 minutes.
+  (Text file)
+  1 h 15 || 20220125 20:03:01 -> 20220125 20:12:11 | 20220125 23:00:00 -> 20220125 23:59:00 |
+
+To setup that:
+  (vimrc)
+  let g:timespentTimeRounding = '15-minutes'  " or 5-minutes
+  let g:timespentTimeFormat = '%H h %M m'
+
+You may want to ignore seconds and round to 5 minute each item
+  (Text file)
+  1 h 15 || 20220125 20:00 -> 20220125 20:15 | 20220125 23:00 -> 20220226 00:00 |
+
+To setup that:
+  (vimrc)
+  let g:timespentDateRounding = '5-minutes'  " or minute
+  let g:timespentDateFormat = '%Y%m%d %H:%M'
+
+You may want to have in your statusline the total time done in the day.
+To not slow down you editor, let's do it when the buffer is written.
+
+To setup that:
+  (vimrc)
+  " (you may need to check :h statusline)
+  " (below, an example of how add the value)
+
+  fu TotalTimeToday()
+   return get(b:, 'total_time_today', '')
+  endfu
+
+  augroup StatuslineTimespent
+   au!
+   au BufWrite *.txt let b:total_time_today=timespent#total_time_today()
+  augroup END
+
+  set statusline+=%{TotalTimeToday()}
+
+To complete the introduction, you shall discover commands some too :
+  (Text file)
+  bla bla
+  part 1
+  1 h 15 || 20220125 20:03 -> 20220125 20:12 | 20220125 23:00 -> 20220125 23:59 |
+  part 2
+  0 h 10 m || 20220125 20:03 -> 20220125 20:12 |
+  part 3
+  0 h 10 m || 20220125 20:03 -> 20220125 20:12 |
+
+  (Commands)
+  " update time spent for 'part 2' (line nume is 5)
+  :5
+  :TimeSpentAdd
+  " By default, commands use current line
+  " but you can specify an address
+  :5TimeSpentExtend
+  :7TimeSpentExtend
+  " add a new time spent after 'bla bla'
+  :1TimeSpentAdd
+  " now a time report exist at line 2, you can add time to it
+  :2TimeSpentAdd
+  " jump between time spent
+  :TimeSpentNext
+  :TimeSpentPrevious
+  :TimeSpentJumpOpenned
+  " jump to first and last time spent (by line order)
+  :0TimeSpentNext
+  :$TimeSpentPrevious
+  " Mark timespent as closed
+  :2TimeSpentFinalize
+
 
 vim:tw=78:ts=8:ft=help:norl:

@@ -1,22 +1,47 @@
     
-     A timespent report :
-     03:56:58 || 20200301 20:03:01 -> 20200301 20:12:11 | 20201211 20:12:11 -> 20201211 23:59:59 |
-    
+     mmmmmmmmm
+      l     l
+      l ### l
+      l  '  l
+      l  '  l
+      l#####l
+     mmmmmmmmm
+
 
 ** timespent.vim -- Vim tool for fast time tracking **
 
 License:     AGPLv3 (see https://www.gnu.org/licenses/agpl-3.0.txt)
-Last Change: 2020-12-11
+Last Change: 2020-12-12
 
+ This plugin allow to track time. You can choose various settings like
+ formats and rounding. See the following documentation for more details.
+
+ Note : you need to restart Vim if you change settings
 
 ### HOW TO USE IT ?
-*AddTimeSpent*
-    add/update datetime on current line.
+*TimeSpentAdd*
+    add datetime on current line.
     (jump to next line with a different content is found)
 
-*CloseTimeSpent*
+*TimeSpentExtend*
+    extend datetime on current line.
+    (jump to next line with a different content is found)
+
+*TimeSpentClose*
     add end datetime (if not found) on current line and
     update duration.
 
-*StopTimeSpentAll*
-    apply CloseTimeSpent on all lines of the current file
+*TimeSpentStop*
+    close all timespent lines of the current file
+
+*TimeSpentUpdate*
+    update duration (with last format known)
+
+*TimeSpentNext*
+    Jump to next timespent
+
+*TimeSpentPrev*
+    Jump to previous timespent
+
+*TimeSpentFinalize*
+    Finalize timespent (e.g. for mark it as reported)
