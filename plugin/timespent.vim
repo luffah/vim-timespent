@@ -138,8 +138,9 @@ fu! s:add_timespent(i)
     if l:l =~ '^\W*$'
       exe a:i.'s/^\(\W*\)/\1'.l:curtime.s:timeUnionMarkerSpaced.'/'
     else
-      exe a:i.'s/^\(\W*\)\(.*\)/\1\2\r\1'.l:curtime.s:timeUnionMarkerSpaced.'/'
+      exe a:i.'norm o '
       let l:i+=1
+      exe l:i.'s/^\(\W*\) \(.*\|$\)/\1'.l:curtime.s:timeUnionMarkerSpaced.'\2/'
     endif
   endif
   call s:update_timespent(l:i)
