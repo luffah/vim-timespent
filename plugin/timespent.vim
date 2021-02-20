@@ -12,19 +12,24 @@
 "  A timespent report :
 "  03:56:58 || 20200301 20:03:01 -> 20200301 20:12:11 | 20201211 20:12:11 -> 20201211 23:59:59 |
 "
-" @command AddTimeSpent
-" add/update datetime on current line.
+" @command TimeSpentAdd
+" add datetime on current line.
 " (jump to next line with a different content is found)
-command! AddTimeSpent call s:add_timespent(line('.'))
+command! TimeSpentAdd call s:add_timespent(line('.'), 0)
 
-" @command CloseTimeSpent
+" @command TimeSpentExtend
+" extend datetime on current line.
+" (jump to next line with a different content is found)
+command! TimeSpentExtend call s:add_timespent(line('.'), 1)
+
+" @command TimeSpentClose
 " add end datetime (if not found) on current line and
 " update duration.
-command! CloseTimeSpent silent call s:close_timespent(line('.'))
+command! TimeSpentClose silent call s:close_timespent(line('.'))
 
-" @command StopTimeSpentAll
-" apply CloseTimeSpent on all lines of the current file
-command! StopTimeSpentAll silent call s:close_timespent_all()
+" @command TimeSpentStop
+" close all timespent lines of the current file
+command! TimeSpentStop silent call s:close_timespent_all()
 
 " @global g:timespentDateFormat
 " Date/time format using %y %Y %m %d %H %M %S
@@ -126,14 +131,16 @@ fu! s:close_timespent(i)
    call s:update_timespent(a:i)
 endfu
 
-fu! s:add_timespent(i)
+fu! s:add_timespent(i, extend)
   let l:i=a:i
   let l:l=getline(a:i)
   let l:curtime=strftime(s:datetimeFormat)
   if l:l =~ s:timeStartTo.'$'
     exe a:i.'s/\s*$/ '.l:curtime.s:timeSeparatorSpaced.'/'
+  elseif a:extend && l:l =~ s:timeToEnd.s:timeSeparatorRe.'$' 
+    exe a:i.'s/'.s:timeToEnd.s:timeSeparatorRe.'\s*$/'.s:timeUnionMarkerSpaced.l:curtime.s:timeSeparatorSpaced.'/'
   elseif l:l =~ s:timeToEnd.s:timeSeparatorRe.'$' || l:l =~ s:timeTotalSeparator
-    exe a:i.'s/$/'.l:curtime.s:timeUnionMarkerSpaced.'/'
+      exe a:i.'s/\s*$/ '.l:curtime.s:timeUnionMarkerSpaced.'/'
   else
     if l:l =~ '^\W*$'
       exe a:i.'s/^\(\W*\)/\1'.l:curtime.s:timeUnionMarkerSpaced.'/'
