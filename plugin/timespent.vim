@@ -31,6 +31,19 @@ command! TimeSpentClose silent call s:close_timespent(line('.'))
 " close all timespent lines of the current file
 command! TimeSpentStop silent call s:close_timespent_all()
 
+
+" @command FinalizeSpentStop
+" Jump to next timespent
+command! TimeSpentNext silent call s:next_timespent(line('.'), 1)
+
+" @command FinalizeSpentStop
+" Jump to previous timespent
+command! TimeSpentPrev silent call s:next_timespent(line('.'), -1)
+
+" @command FinalizeSpentStop
+" Finalize timespent (e.g. for mark it as reported)
+command! TimeSpentFinalize silent call s:finalise_timespent(line('.'))
+
 " @global g:timespentDateFormat
 " Date/time format using %y %Y %m %d %H %M %S
 " default : %Y%m%d  %H:%M:%S
@@ -46,6 +59,15 @@ let s:datetimeFormat=get(g:, 'timespentDateFormat', '%Y%m%d %H:%M:%S')
 "     0 || 20200301 20:03:01 -> 20200301 20:52:51 |
 let s:timeFormat=get(g:, 'timespentTimeFormat', '%H:%M:%S')
 
+" FIXME TODO ?
+"" " @global g:timespentFinaliseDateFormat
+"" " Compact the timespent (e.g. for marking it as reported)
+"" " Time format using %H %M %S in groups {{total}} {{day}}, {{duration}}, {{timestamps}}
+"" " default : {{total %H:%M:%S}} {{totalsep |=}} {{day %Y%m%d}} {{timestamps %H:%M:%S}} {{sep |}}
+"let s:finaldatetimeFormat=get(g:, 'timespentFinalizeDateFormat',
+"      \ '(timestamps) %H:%M:%S')
+
+let s:timeFormat=get(g:, 'timespentTimeFormat', '%H:%M:%S')
 let s:datetimeFormatRe=substitute(substitute(s:datetimeFormat, '%[HMSmdy]\C', '\\d\\d', 'g'), '%Y', '\\d\\d\\d\\d', '')
 let s:timeFormatRe=substitute(s:timeFormat, '%[HMSmdy]\C', '\\d\\d', 'g')
 let s:timeSeparator='|'
@@ -70,10 +92,10 @@ fu! s:update_timespent(i)
       let l:ts = substitute(l:ts, s:timeSeparatorRe.'$', '', '')
       let l:ts = substitute(l:ts, s:timeSeparatorRe, s:timeSeparatorSpaced, 'g')
       let l:ts = split(l:ts, ' | ')
-python << EOF
+python3 << EOF
 import vim
 import datetime
-
+ 
 formatstr = vim.eval("s:datetimeFormat")
 sep = vim.eval("s:timeUnionMarker")
 
@@ -88,7 +110,7 @@ for i in list(vim.eval("l:ts")):
         [a, b] = i.split(sep)
         if a and b:
             total += time_between(a.strip(), b.strip())
-    except:
+    except Exception as e:
         continue
 
 res = vim.eval("s:timeFormat")
@@ -131,6 +153,24 @@ fu! s:close_timespent(i)
    call s:update_timespent(a:i)
 endfu
 
+fu! s:finalise_timespent(i)
+    call s:close_timespent(a:i)
+    exe a:i.'s/'.s:timeTotalSeparator.'/=/'
+    exe a:i.'s/'.s:timeSeparator.'/;/g'
+endfu
+
+fu! s:next_timespent(i, step)
+  "find a line matching the pattern
+  let l:i = a:i
+  let l:e=line('$')
+  while l:i > 0 && l:i <= l:e && getline(l:i) !~ s:timeStartToEnd.s:timeSeparatorRe
+    let l:i+=a:step
+  endwhile
+  if l:i != l:e
+    exe l:i
+  endif
+endfu
+
 fu! s:add_timespent(i, extend)
   let l:i=a:i
   let l:l=getline(a:i)
@@ -144,10 +184,14 @@ fu! s:add_timespent(i, extend)
   else
     if l:l =~ '^\W*$'
       exe a:i.'s/^\(\W*\)/\1'.l:curtime.s:timeUnionMarkerSpaced.'/'
-    else
+    elseif synIDattr(synIDtrans(synID(line("."), col("$")-1, 1)), "name") =~? 'comment'
       exe a:i.'norm o '
       let l:i+=1
       exe l:i.'s/^\(\W*\) \(.*\|$\)/\1'.l:curtime.s:timeUnionMarkerSpaced.'\2/'
+    else
+      let l:indent = strpart(l:l, 0, match(l:l, '\S'))
+      call append(l:i, l:indent.l:curtime.s:timeUnionMarkerSpaced)
+      let l:i+=1
     endif
   endif
   call s:update_timespent(l:i)
