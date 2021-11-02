@@ -32,15 +32,15 @@ command! TimeSpentClose silent call s:close_timespent(line('.'))
 command! TimeSpentStop silent call s:close_timespent_all()
 
 
-" @command FinalizeSpentStop
+" @command TimeSpentNext
 " Jump to next timespent
 command! TimeSpentNext silent call s:next_timespent(line('.'), 1)
 
-" @command FinalizeSpentStop
+" @command TimeSpentPrev
 " Jump to previous timespent
 command! TimeSpentPrev silent call s:next_timespent(line('.'), -1)
 
-" @command FinalizeSpentStop
+" @command TimeSpentFinalize
 " Finalize timespent (e.g. for mark it as reported)
 command! TimeSpentFinalize silent call s:finalise_timespent(line('.'))
 
@@ -58,6 +58,22 @@ let s:datetimeFormat=get(g:, 'timespentDateFormat', '%Y%m%d %H:%M:%S')
 "     %H   If you want to see hours only, you shall know the value is truncated
 "     0 || 20200301 20:03:01 -> 20200301 20:52:51 |
 let s:timeFormat=get(g:, 'timespentTimeFormat', '%H:%M:%S')
+
+
+" @global g:timespentDateRounding
+" For a date (checkpoint), precise the rounding mode : second, minute, 5-minutes
+" default : 'second'
+let s:datetimeDateRounding=get(g:, 'timespentDateRounding', 'second')
+
+" @global g:timespentTimeRounding
+" For the time spent, precise the rounding mode : second, minute, hour-ratio, 5-minutes, 15-minutes
+" default : 'second'
+let s:datetimeTimeRounding=get(g:, 'timespentTimeRounding', 'second')
+
+" @global g:timespentTimeTakingTime
+" In seconds, time for marking time
+" default : 0
+let s:timeTakingSeconds=get(g:, 'timespentTimeTakingTime', 0)
 
 " FIXME TODO ?
 "" " @global g:timespentFinaliseDateFormat
@@ -95,9 +111,18 @@ fu! s:update_timespent(i)
 python3 << EOF
 import vim
 import datetime
+from math import trunc
  
 formatstr = vim.eval("s:datetimeFormat")
+rounding = vim.eval("s:datetimeTimeRounding")
 sep = vim.eval("s:timeUnionMarker")
+min_sec_minute = 30  # more than 30 seconds count 1 minute
+min_sec_5minutes = 120  # more than 2 minutes count 5
+min_sec_15minutes = 300  # more than 5 minutes count 15
+_unitformat = None
+_hourformat = None
+_minuteformat = None
+_secondformat = None
 
 def time_between(d1, d2):
     d1 = datetime.datetime.strptime(d1, formatstr)
@@ -115,17 +140,78 @@ for i in list(vim.eval("l:ts")):
 
 res = vim.eval("s:timeFormat")
 seconds=total.total_seconds()
-if '%H' in res:
+
+if rounding == 'second':
+  pass
+elif rounding == 'minute':
+  minute_rounding = trunc(seconds/60)*60
+  if (minute_rounding + min_sec_minute) < seconds:
+    seconds = minute_rounding + 60
+  else:
+    seconds = minute_rounding
+elif rounding == 'hour-ratio':
+  # attempt to approximates to minutes 0, 6, 12, 18, 24, 30, 36, 42, 48, 54
+  remains=(seconds%3600)
+  _remains=(remains/360)
+  seconds -= remains
+  for i in range(9, -1, -1):
+    if _remains > (i + .25):
+      if _remains > (i + .5):
+        seconds += (i+1) * 360
+      else: # align on 3 9 15 21 27 33 39 45 51 57
+        seconds += (i+0.5) * 360
+      break
+elif rounding == '5-minutes':
+  minute_rounding = trunc(seconds/300)*300
+  if (minute_rounding + min_sec_5minutes) < seconds:
+    seconds = minute_rounding + 300
+  else:
+    seconds = minute_rounding
+elif rounding == '15-minutes':
+  minute_rounding = trunc(seconds/900)*900
+  if (minute_rounding + min_sec_15minutes) < seconds:
+    seconds = minute_rounding + 900
+  else:
+    seconds = minute_rounding
+
+unitformat = _unitformat or '%.2f'
+
+if ('%H:%M' in res) or ('%H%M' in res):
+  hourformat = '%02d'
+  minuteformat = '%02d'
+  secondformat = '%02d'
+elif '%M' in res:
+  hourformat = '%d'
+  if '%H' in res:
+    minuteformat = '%02d'
+  else:
+    minuteformat = '%d'
+  secondformat = '%d'
+else:
+  hourformat = unitformat
+  minuteformat = unitformat
+  secondformat = '%d'
+
+# allow override
+if _hourformat:
+  hourformat = _hourformat
+if _minuteformat:
+  minuteformat = _minuteformat
+
+if '%H' in res.upper():
   hours=seconds/3600
   seconds%=3600
-  res = res.replace('%H', '%02d' % hours)
-if '%M' in res:
+
+  res = res.replace('%h', unitformat % hours)
+  res = res.replace('%H', hourformat % hours)
+
+if '%M' in res.upper():
   minutes=seconds/60
   seconds%=60
-  res = res.replace('%M', '%02d' % minutes)
-res = res.replace('%S', '%02d' % seconds)
+  res = res.replace('%m', unitformat % minutes)
+  res = res.replace('%M', minuteformat % minutes)
+res = res.replace('%S', secondformat % seconds)
 
-res = vim.eval("s:timeFormat").replace('%H', '%02d' % hours).replace('%M', '%02d' % minutes).replace('%S', '%02d' % seconds)
 vim.command("let sTotalDuration = '%s'" % res)
 EOF
     let s:total = sTotalDuration
@@ -171,17 +257,22 @@ fu! s:next_timespent(i, step)
   endif
 endfu
 
+
 fu! s:add_timespent(i, extend)
   let l:i=a:i
   let l:l=getline(a:i)
-  let l:curtime=strftime(s:datetimeFormat)
+  let l:_curtime=localtime()
   if l:l =~ s:timeStartTo.'$'
+    let l:curtime = strftime(s:datetimeFormat, l:_curtime)
     exe a:i.'s/\s*$/ '.l:curtime.s:timeSeparatorSpaced.'/'
-  elseif a:extend && l:l =~ s:timeToEnd.s:timeSeparatorRe.'$' 
+  elseif a:extend && l:l =~ s:timeToEnd.s:timeSeparatorRe.'$'
+    let l:curtime = strftime(s:datetimeFormat, l:_curtime - s:timeTakingSeconds)
     exe a:i.'s/'.s:timeToEnd.s:timeSeparatorRe.'\s*$/'.s:timeUnionMarkerSpaced.l:curtime.s:timeSeparatorSpaced.'/'
   elseif l:l =~ s:timeToEnd.s:timeSeparatorRe.'$' || l:l =~ s:timeTotalSeparator
-      exe a:i.'s/\s*$/ '.l:curtime.s:timeUnionMarkerSpaced.'/'
+    let l:curtime = strftime(s:datetimeFormat, l:_curtime - s:timeTakingSeconds)
+    exe a:i.'s/\s*$/ '.l:curtime.s:timeUnionMarkerSpaced.'/'
   else
+    let l:curtime = strftime(s:datetimeFormat, l:_curtime - s:timeTakingSeconds)
     if l:l =~ '^\W*$'
       exe a:i.'s/^\(\W*\)/\1'.l:curtime.s:timeUnionMarkerSpaced.'/'
     elseif synIDattr(synIDtrans(synID(line("."), col("$")-1, 1)), "name") =~? 'comment'
