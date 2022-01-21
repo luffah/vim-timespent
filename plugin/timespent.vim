@@ -31,6 +31,9 @@ command! TimeSpentClose silent call s:close_timespent(line('.'))
 " close all timespent lines of the current file
 command! TimeSpentStop silent call s:close_timespent_all()
 
+" @command TimeSpentUpdate
+" update duration (with last format known)
+command! -range TimeSpentUpdate silent call s:update_multi_timespent(<line1>, <line2>)
 
 " @command TimeSpentNext
 " Jump to next timespent
@@ -42,7 +45,7 @@ command! TimeSpentPrev silent call s:next_timespent(line('.'), -1)
 
 " @command TimeSpentFinalize
 " Finalize timespent (e.g. for mark it as reported)
-command! TimeSpentFinalize silent call s:finalise_timespent(line('.'))
+command! -range TimeSpentFinalize silent call s:finalise_timespent(<line1>, <line2>)
 
 " @global g:timespentDateFormat
 " Date/time format using %y %Y %m %d %H %M %S
@@ -239,10 +242,24 @@ fu! s:close_timespent(i)
    call s:update_timespent(a:i)
 endfu
 
-fu! s:finalise_timespent(i)
-    call s:close_timespent(a:i)
-    exe a:i.'s/'.s:timeTotalSeparator.'/=/'
-    exe a:i.'s/'.s:timeSeparator.'/;/g'
+fu! s:finalise_timespent(start, end)
+  for l:i in range(a:start, a:end)
+    let l:l=getline(l:i)
+    if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
+      call s:close_timespent(l:i)
+      exe l:i.'s/'.s:timeTotalSeparator.'/=/'
+      exe l:i.'s/'.s:timeSeparator.'/;/g'
+    endif
+  endfor
+endfu
+
+fu! s:update_multi_timespent(start, end)
+   for l:i in range(a:start, a:end)
+    let l:l=getline(l:i)
+    if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
+      call s:update_timespent(l:i)
+    endif
+  endfor
 endfu
 
 fu! s:next_timespent(i, step)
