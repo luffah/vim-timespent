@@ -9,8 +9,24 @@
 "
 " @AsciiArt
 "
-"  A timespent report :
-"  03:56:58 || 20200301 20:03:01 -> 20200301 20:12:11 | 20201211 20:12:11 -> 20201211 23:59:59 |
+"  mmmmmmmmm
+"   l     l
+"   l ### l
+"   l  '  l
+"   l  '  l
+"   l#####l
+"  mmmmmmmmm
+"
+" @Overview
+"
+"  This plugin allow to track time. You can choose various settings like
+"  formats and rounding. See the following documentation for more details.
+"
+"  Note : you need to restart Vim if you change settings
+"
+" @Examples
+"  A timespent report (rounded to 15 minutes):
+"  1 h 15 || 20:03:01 -> 20:12:11 | 23:01:11 -> 23:59:59 |
 "
 " @command TimeSpentAdd
 " add datetime on current line.
@@ -69,9 +85,24 @@ let s:timeFormat=get(g:, 'timespentTimeFormat', '%H:%M:%S')
 let s:datetimeDateRounding=get(g:, 'timespentDateRounding', 'second')
 
 " @global g:timespentTimeRounding
-" For the time spent, precise the rounding mode : second, minute, hour-ratio, 5-minutes, 15-minutes
+" For the time spent, precise the rounding mode : second, minute, 5-minutes, 15-minutes
 " default : 'second'
 let s:datetimeTimeRounding=get(g:, 'timespentTimeRounding', 'second')
+
+" @global g:timespentTimeRoundingAtLeastFor_1_minute
+" Precise the minimal time in seconds to declare 1 min
+" default : 30
+let s:datetimeRounding1min=get(g:, 'timespentTimeRoundingAtLeastFor_1_minute', 30)
+
+" @global g:timespentTimeRoundingAtLeastFor_5_minutes
+" Precise the minimal time in seconds to declare 5 min
+" default : 120
+let s:datetimeRounding5min=get(g:, 'timespentTimeRoundingAtLeastFor_5_minutes', 120)
+
+" @global g:timespentTimeRoundingAtLeastFor_15_minutes
+" Precise the minimal time in seconds to declare 15 min
+" default : 300
+let s:datetimeRounding15min=get(g:, 'timespentTimeRoundingAtLeastFor_15_minutes', 300)
 
 " @global g:timespentTimeTakingTime
 " In seconds, time for marking time
@@ -86,7 +117,6 @@ let s:timeTakingSeconds=get(g:, 'timespentTimeTakingTime', 0)
 "let s:finaldatetimeFormat=get(g:, 'timespentFinalizeDateFormat',
 "      \ '(timestamps) %H:%M:%S')
 
-let s:timeFormat=get(g:, 'timespentTimeFormat', '%H:%M:%S')
 let s:datetimeFormatRe=substitute(substitute(s:datetimeFormat, '%[HMSmdy]\C', '\\d\\d', 'g'), '%Y', '\\d\\d\\d\\d', '')
 let s:timeFormatRe=substitute(s:timeFormat, '%[HMSmdy]\C', '\\d\\d', 'g')
 let s:timeSeparator='|'
@@ -101,6 +131,7 @@ let s:timeUnionMarkerRe='\s*'.s:timeUnionMarker.'\s*'
 let s:timeStartTo=s:datetimeFormatRe.s:timeUnionMarkerRe
 let s:timeStartToEnd=s:datetimeFormatRe.s:timeUnionMarkerSpaced.s:datetimeFormatRe
 let s:timeToEnd=s:timeUnionMarkerSpaced.s:datetimeFormatRe
+
 
 fu! s:update_timespent(i)
   let l:l=getline(a:i)
@@ -119,9 +150,9 @@ from math import trunc
 formatstr = vim.eval("s:datetimeFormat")
 rounding = vim.eval("s:datetimeTimeRounding")
 sep = vim.eval("s:timeUnionMarker")
-min_sec_minute = 30  # more than 30 seconds count 1 minute
-min_sec_5minutes = 120  # more than 2 minutes count 5
-min_sec_15minutes = 300  # more than 5 minutes count 15
+min_sec_minute = int(vim.eval("s:datetimeRounding1min"))
+min_sec_5minutes = int(vim.eval("s:datetimeRounding5min"))
+min_sec_15minutes = int(vim.eval("s:datetimeRounding15min"))
 _unitformat = None
 _hourformat = None
 _minuteformat = None
@@ -148,11 +179,12 @@ if rounding == 'second':
   pass
 elif rounding == 'minute':
   minute_rounding = trunc(seconds/60)*60
-  if (minute_rounding + min_sec_minute) < seconds:
+  if (minute_rounding + min_sec_minute) <= seconds:
     seconds = minute_rounding + 60
   else:
     seconds = minute_rounding
 elif rounding == 'hour-ratio':
+  # -- obsolete / meaningless --
   # attempt to approximates to minutes 0, 6, 12, 18, 24, 30, 36, 42, 48, 54
   remains=(seconds%3600)
   _remains=(remains/360)
@@ -166,13 +198,13 @@ elif rounding == 'hour-ratio':
       break
 elif rounding == '5-minutes':
   minute_rounding = trunc(seconds/300)*300
-  if (minute_rounding + min_sec_5minutes) < seconds:
+  if (minute_rounding + min_sec_5minutes) <= seconds:
     seconds = minute_rounding + 300
   else:
     seconds = minute_rounding
 elif rounding == '15-minutes':
   minute_rounding = trunc(seconds/900)*900
-  if (minute_rounding + min_sec_15minutes) < seconds:
+  if (minute_rounding + min_sec_15minutes) <= seconds:
     seconds = minute_rounding + 900
   else:
     seconds = minute_rounding
@@ -233,9 +265,38 @@ fu! s:close_timespent_all()
   endfor
 endfu
 
+fu! s:get_localtime(end)
+  let l:ret = localtime()
+  if !a:end
+     let l:ret -= s:timeTakingSeconds
+  endif
+  if s:datetimeDateRounding == 'minute'
+     if a:end 
+       let l:ret += 60 - s:datetimeRounding1min
+     endif
+     let l:minute_rounding = trunc(l:ret/60)*60
+     if (l:minute_rounding + s:datetimeRounding1min) <= l:ret
+        let l:ret = float2nr(l:minute_rounding + 60)
+     else
+       let l:ret = float2nr(l:minute_rounding)
+    endif
+  elseif s:datetimeDateRounding == '5-minutes'
+     if a:end 
+       let l:ret += 300 - s:datetimeRounding5min
+     endif
+     let l:minute_rounding = trunc(l:ret/300)*300
+     if (l:minute_rounding + s:datetimeRounding5min) <= l:ret
+        let l:ret = float2nr(l:minute_rounding + 300)
+     else
+        let l:ret = float2nr(l:minute_rounding)
+    endif
+  endif
+  return l:ret
+endfu
+
 fu! s:close_timespent(i)
    let l:l=getline(a:i)
-   let l:curtime=strftime(s:datetimeFormat)
+   let l:curtime=strftime(s:datetimeFormat, s:get_localtime(1))
    if l:l =~ s:timeStartTo.'$'
       exe a:i.'s/$/'.l:curtime.s:timeSeparatorSpaced.'/'
    endif
@@ -278,18 +339,17 @@ endfu
 fu! s:add_timespent(i, extend)
   let l:i=a:i
   let l:l=getline(a:i)
-  let l:_curtime=localtime()
   if l:l =~ s:timeStartTo.'$'
-    let l:curtime = strftime(s:datetimeFormat, l:_curtime)
+    let l:curtime = strftime(s:datetimeFormat, s:get_localtime(1))
     exe a:i.'s/\s*$/ '.l:curtime.s:timeSeparatorSpaced.'/'
   elseif a:extend && l:l =~ s:timeToEnd.s:timeSeparatorRe.'$'
-    let l:curtime = strftime(s:datetimeFormat, l:_curtime - s:timeTakingSeconds)
+    let l:curtime = strftime(s:datetimeFormat, s:get_localtime(0))
     exe a:i.'s/'.s:timeToEnd.s:timeSeparatorRe.'\s*$/'.s:timeUnionMarkerSpaced.l:curtime.s:timeSeparatorSpaced.'/'
   elseif l:l =~ s:timeToEnd.s:timeSeparatorRe.'$' || l:l =~ s:timeTotalSeparator
-    let l:curtime = strftime(s:datetimeFormat, l:_curtime - s:timeTakingSeconds)
+    let l:curtime = strftime(s:datetimeFormat, s:get_localtime(0))
     exe a:i.'s/\s*$/ '.l:curtime.s:timeUnionMarkerSpaced.'/'
   else
-    let l:curtime = strftime(s:datetimeFormat, l:_curtime - s:timeTakingSeconds)
+    let l:curtime = strftime(s:datetimeFormat, s:get_localtime(0))
     if l:l =~ '^\W*$'
       exe a:i.'s/^\(\W*\)/\1'.l:curtime.s:timeUnionMarkerSpaced.'/'
     elseif synIDattr(synIDtrans(synID(line("."), col("$")-1, 1)), "name") =~? 'comment'

@@ -3,20 +3,33 @@
  >
 
     
-     A timespent report :
-     03:56:58 || 20200301 20:03:01 -> 20200301 20:12:11 | 20201211 20:12:11 -> 20201211 23:59:59 |
+     mmmmmmmmm
+      l     l
+      l ### l
+      l  '  l
+      l  '  l
+      l#####l
+     mmmmmmmmm
 
 <
 License:     AGPLv3 (see https://www.gnu.org/licenses/agpl-3.0.txt)
 Author(s):   luffah (luffah AT runbox com)
 Revision:    1
 Last Change: 2020-12-12
+
+
+ This plugin allow to track time. You can choose various settings like
+ formats and rounding. See the following documentation for more details.
+
+ Note : you need to restart Vim if you change settings
+
 ==============================================================================
 CONTENTS                                                  *timespent-contents*
 
 1. Functions                                             |timespent-functions|
 2. Commands                                               |timespent-commands|
 3. Globals                                                 |timespent-globals|
+4. Examples                                               |timespent-examples|
 
 ==============================================================================
 FUNCTIONS                                                *timespent-functions*
@@ -51,6 +64,9 @@ COMMANDS                                                  *timespent-commands*
 *TimeSpentStop*
     close all timespent lines of the current file
 
+*TimeSpentUpdate*
+    update duration (with last format known)
+
 *TimeSpentNext*
     Jump to next timespent
 
@@ -82,11 +98,31 @@ GLOBALS                                                    *timespent-globals*
     default : 'second'
 
 *g:timespentTimeRounding*
-    For the time spent, precise the rounding mode : second, minute, hour-ratio, 5-minutes, 15-minutes
+    For the time spent, precise the rounding mode : second, minute, 5-minutes, 15-minutes
     default : 'second'
+
+*g:timespentTimeRoundingAtLeastFor_1_minute*
+    Precise the minimal time in seconds to declare 1 min
+    default : 30
+
+*g:timespentTimeRoundingAtLeastFor_5_minutes*
+    Precise the minimal time in seconds to declare 5 min
+    default : 120
+
+*g:timespentTimeRoundingAtLeastFor_15_minutes*
+    Precise the minimal time in seconds to declare 15 min
+    default : 300
 
 *g:timespentTimeTakingTime*
     In seconds, time for marking time
     default : 0
+
+
+==============================================================================
+EXAMPLES                                                  *timespent-examples*
+
+ A timespent report (rounded to 15 minutes):
+ 1 h 15 || 20:03:01 -> 20:12:11 | 23:01:11 -> 23:59:59 |
+
 
 vim:tw=78:ts=8:ft=help:norl:
