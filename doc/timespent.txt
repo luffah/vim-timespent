@@ -21,7 +21,7 @@ Last Change: 2022-01-25
  This plugin allow to track time. You can choose various settings like
  formats and rounding. See the following documentation for more details.
 
- Note : you need to restart Vim if you change settings
+ Note : you need write setting in vimrc file and to restart Vim to apply
 
 ==============================================================================
 CONTENTS                                                  *timespent-contents*
@@ -141,8 +141,56 @@ GLOBALS                                                    *timespent-globals*
 ==============================================================================
 EXAMPLES                                                  *timespent-examples*
 
- A timespent report (rounded to 15 minutes):
- 1 h 15 || 20:03:01 -> 20:12:11 | 23:01:11 -> 23:59:59 |
+
+(In theses example the timesheet are written a .txt file )
+
+If you put your timesheets in a text file, it will look like:
+  (Text file)
+  01:08:10 || 20220125 20:03:01 -> 20220125 20:12:11 | 20220125 23:00:00 -> 20220125 23:59:00 |
+
+You may discover that you never start the timer before writing task title.
+
+To define how many seconds it takes for you to write the title of a task :
+  (vimrc)
+  let g:timespentTimeTakingTime = 30
+
+You may want to round time to 15 minutes.
+  (Text file)
+  1 h 15 || 20220125 20:03:01 -> 20220125 20:12:11 | 20220125 23:00:00 -> 20220125 23:59:00 |
+
+To setup that:
+  (vimrc)
+  let g:timespentTimeRounding = '15-minutes'  " or 5-minutes
+  let g:timespentTimeFormat = '%H h %M m'
+
+You may want to ignore seconds and round to 5 minute each item
+  (Text file)
+  1 h 15 || 20220125 20:00 -> 20220125 20:15 | 20220125 23:00 -> 20220226 00:00 |
+
+To setup that:
+  (vimrc)
+  let g:timespentDateRounding = '5-minutes'  " or minute
+  let g:timespentDateFormat = '%Y%m%d %H:%M'
+
+You may want to have in your statusline the total time done in the day.
+To not slow down you editor, let's do it when the buffer is written.
+
+To setup that:
+  (vimrc)
+  " (you may need to check :h statusline)
+  " (below, an example of how add the value)
+
+  fu TotalTimeToday()
+   return get(b:, 'total_time_today', '')
+  endfu
+
+  augroup StatuslineTimespent
+   au!
+   au BufWrite *.txt let b:total_time_today=timespent#total_time_today()
+  augroup END
+
+  set statusline+=%{TotalTimeToday()}
+
 
 
 vim:tw=78:ts=8:ft=help:norl:
