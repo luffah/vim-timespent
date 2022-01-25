@@ -564,7 +564,7 @@ fu! timespent#total_time_today()
      let l:hours_yesterday = range(s:newDayHour, 23)
    else
      let l:hours_today =  range(s:newDayHour, 23)
-   fi
+   endif
 
    let l:datefmttmp = s:datetimeFormat
    while len(l:datefmttmp)
