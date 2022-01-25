@@ -5,9 +5,12 @@ TimeSpentFinalize	timespent.txt	/*TimeSpentFinalize*
 TimeSpentNext	timespent.txt	/*TimeSpentNext*
 TimeSpentPrev	timespent.txt	/*TimeSpentPrev*
 TimeSpentStop	timespent.txt	/*TimeSpentStop*
+TimeSpentUnFinalize	timespent.txt	/*TimeSpentUnFinalize*
 TimeSpentUpdate	timespent.txt	/*TimeSpentUpdate*
+TimeSpentUpdateTimeFormatFrom	timespent.txt	/*TimeSpentUpdateTimeFormatFrom*
 g:timespentDateFormat	timespent.txt	/*g:timespentDateFormat*
 g:timespentDateRounding	timespent.txt	/*g:timespentDateRounding*
+g:timespentNewDayHour	timespent.txt	/*g:timespentNewDayHour*
 g:timespentTimeFormat	timespent.txt	/*g:timespentTimeFormat*
 g:timespentTimeRounding	timespent.txt	/*g:timespentTimeRounding*
 g:timespentTimeRoundingAtLeastFor_15_minutes	timespent.txt	/*g:timespentTimeRoundingAtLeastFor_15_minutes*
@@ -17,6 +20,9 @@ g:timespentTimeTakingTime	timespent.txt	/*g:timespentTimeTakingTime*
 timespent	timespent.txt	/*timespent*
 timespent#convert#timewarrior#from_data()	timespent.txt	/*timespent#convert#timewarrior#from_data()*
 timespent#ftime()	timespent.txt	/*timespent#ftime()*
+timespent#total_time()	timespent.txt	/*timespent#total_time()*
+timespent#total_time_filtered()	timespent.txt	/*timespent#total_time_filtered()*
+timespent#total_time_today()	timespent.txt	/*timespent#total_time_today()*
 timespent-commands	timespent.txt	/*timespent-commands*
 timespent-contents	timespent.txt	/*timespent-contents*
 timespent-examples	timespent.txt	/*timespent-examples*

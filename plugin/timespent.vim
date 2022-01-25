@@ -2,8 +2,8 @@
 " @Author:      luffah (luffah AT runbox com)
 " @License:     AGPLv3 (see https://www.gnu.org/licenses/agpl-3.0.txt)
 " @Created:     2020-12-11
-" @Last Change: 2020-12-12
-" @Revision:    1
+" @Last Change: 2022-01-25
+" @Revision:    2
 " @Files
 "   ./timespent/convert/timewarrior.vim
 "
@@ -51,6 +51,10 @@ command! TimeSpentStop silent call s:close_timespent_all()
 " update duration (with last format known)
 command! -range TimeSpentUpdate silent call s:update_multi_timespent(<line1>, <line2>)
 
+" @command TimeSpentUpdateTimeFormatFrom
+" update timestamps from old format in parameter to new format known (from globals)
+command! -range -nargs=+ TimeSpentUpdateTimeFormatFrom silent call s:update_multi_datetime_format(<line1>, <line2>, <q-args>)
+
 " @command TimeSpentNext
 " Jump to next timespent
 command! TimeSpentNext silent call s:next_timespent(line('.'), 1)
@@ -63,10 +67,20 @@ command! TimeSpentPrev silent call s:next_timespent(line('.'), -1)
 " Finalize timespent (e.g. for mark it as reported)
 command! -range TimeSpentFinalize silent call s:finalise_timespent(<line1>, <line2>)
 
+" @command TimeSpentUnFinalize
+" unFinalize timespent (e.g. for unmark it as reported) to allow updates
+command! -range TimeSpentUnFinalize silent call s:unfinalise_timespent(<line1>, <line2>)
+
 " @global g:timespentDateFormat
 " Date/time format using %y %Y %m %d %H %M %S
-" default : %Y%m%d  %H:%M:%S
+" default : '%Y%m%d  %H:%M:%S'
 let s:datetimeFormat=get(g:, 'timespentDateFormat', '%Y%m%d %H:%M:%S')
+" using specials chars like %% is strongly unadvised
+
+" @global g:timespentNewDayHour
+" Hour that separate two days. Required by timespent#total_time_today()
+" default : 6
+let s:newDayHour=get(g:, 'timespentNewDayHour', 6)
 
 " @global g:timespentTimeFormat
 " Total time format using %H %M %S
@@ -120,9 +134,13 @@ let s:timeTakingSeconds=get(g:, 'timespentTimeTakingTime', 0)
 let s:datetimeFormatRe=substitute(substitute(s:datetimeFormat, '%[HMSmdy]\C', '\\d\\d', 'g'), '%Y', '\\d\\d\\d\\d', '')
 let s:timeFormatRe=substitute(s:timeFormat, '%[HMSmdy]\C', '\\d\\d', 'g')
 let s:timeSeparator='|'
+let s:timeSeparatorFinal=';'
 let s:timeSeparatorSpaced=' '.s:timeSeparator.' '
+let s:timeSeparatorFinalSpaced=' '.s:timeSeparatorFinal.' '
 let s:timeSeparatorRe='\s*'.s:timeSeparator.'\s*'
+let s:timeSeparatorFinalRe='\s*'.s:timeSeparatorFinal.'\s*'
 let s:timeTotalSeparator='||'
+let s:timeTotalSeparatorFinal='='
 let s:timeTotalSeparatorSpaced=' '.s:timeTotalSeparator.' '
 let s:timeTotalSeparatorRe='\s*'.s:timeTotalSeparator.'\s*'
 let s:timeUnionMarker='->'
@@ -132,16 +150,8 @@ let s:timeStartTo=s:datetimeFormatRe.s:timeUnionMarkerRe
 let s:timeStartToEnd=s:datetimeFormatRe.s:timeUnionMarkerSpaced.s:datetimeFormatRe
 let s:timeToEnd=s:timeUnionMarkerSpaced.s:datetimeFormatRe
 
-
-fu! s:update_timespent(i)
-  let l:l=getline(a:i)
-  if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
-      " cant't figure how to properly get list of elems corresponding to
-      " matchlist, so just cleaning 
-      let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorRe.'\)\+')[0]
-      let l:ts = substitute(l:ts, s:timeSeparatorRe.'$', '', '')
-      let l:ts = substitute(l:ts, s:timeSeparatorRe, s:timeSeparatorSpaced, 'g')
-      let l:ts = split(l:ts, ' | ')
+fu! s:compute_total_time(timestamps)
+  " return total time from list of ["timebegin -> timeend", ]
 python3 << EOF
 import vim
 import datetime
@@ -164,7 +174,7 @@ def time_between(d1, d2):
     return (d2 - d1)
 
 total = datetime.timedelta(0)
-for i in list(vim.eval("l:ts")):
+for i in list(vim.eval("a:timestamps")):
     try:
         [a, b] = i.split(sep)
         if a and b:
@@ -251,6 +261,21 @@ vim.command("let sTotalDuration = '%s'" % res)
 EOF
     let s:total = sTotalDuration
     unlet sTotalDuration
+    return s:total
+
+endfu
+
+
+fu! s:update_timespent(i)
+  let l:l=getline(a:i)
+  if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
+    " cant't figure how to properly get list of elems corresponding to
+    " matchlist, so just cleaning 
+    let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorRe.'\)\+')[0]
+    let l:ts = substitute(l:ts, s:timeSeparatorRe.'$', '', '')
+    let l:ts = substitute(l:ts, s:timeSeparatorRe, s:timeSeparatorSpaced, 'g')
+    let l:ts = split(l:ts, s:timeSeparatorSpaced)
+    let s:total = s:compute_total_time(l:ts)
     if l:l =~ s:timeTotalSeparatorRe
       exe a:i.'s/^\(\D*\)\(.*\)'.s:timeTotalSeparatorRe.'\('.s:datetimeFormatRe.'\)/\1'.s:total.s:timeTotalSeparatorSpaced.'\3/'
     else
@@ -265,11 +290,11 @@ fu! s:close_timespent_all()
   endfor
 endfu
 
-fu! s:get_localtime(end)
-  let l:ret = localtime()
-  if !a:end
-     let l:ret -= s:timeTakingSeconds
-  endif
+
+fu! s:get_rounded_time(datetime, end)
+
+  let l:ret = a:datetime
+
   if s:datetimeDateRounding == 'minute'
      if a:end 
        let l:ret += 60 - s:datetimeRounding1min
@@ -292,6 +317,15 @@ fu! s:get_localtime(end)
     endif
   endif
   return l:ret
+
+endfu
+
+fu! s:get_localtime(end)
+  let l:ret = localtime()
+  if !a:end
+     let l:ret -= s:timeTakingSeconds
+  endif
+  return s:get_rounded_time(l:ret, a:end)
 endfu
 
 fu! s:close_timespent(i)
@@ -308,8 +342,18 @@ fu! s:finalise_timespent(start, end)
     let l:l=getline(l:i)
     if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
       call s:close_timespent(l:i)
-      exe l:i.'s/'.s:timeTotalSeparator.'/=/'
-      exe l:i.'s/'.s:timeSeparator.'/;/g'
+      exe l:i.'s/'.s:timeTotalSeparator.'/'.s:timeTotalSeparatorFinal.'/'
+      exe l:i.'s/'.s:timeSeparator.'/'.s:timeSeparatorFinal.'/g'
+    endif
+  endfor
+endfu
+
+fu! s:unfinalise_timespent(start, end)
+  for l:i in range(a:start, a:end)
+    let l:l=getline(l:i)
+    if l:l =~ s:timeStartToEnd . s:timeSeparatorFinalRe
+      exe l:i.'s/'.s:timeTotalSeparatorFinal.'/'.s:timeTotalSeparator.'/'
+      exe l:i.'s/'.s:timeSeparatorFinal.'/'.s:timeSeparator.'/g'
     endif
   endfor
 endfu
@@ -364,6 +408,163 @@ fu! s:add_timespent(i, extend)
   endif
   call s:update_timespent(l:i)
 endfu
+
+fu! s:update_multi_datetime_format(start, end, old_time_format)
+   for l:i in range(a:start, a:end)
+      call s:update_datetime_format(l:i, a:old_time_format)
+  endfor
+endfu
+
+fu! s:update_datetime_format(line_number, old_time_format)
+  let l:i=a:line_number
+  let l:datetimeFormat = a:old_time_format
+  let l:l=getline(l:i)
+
+  let l:datetimeFormatRe=substitute(substitute(l:datetimeFormat, '%[HMSmdy]\C', '\\d\\d', 'g'), '%Y', '\\d\\d\\d\\d', '')
+  let l:timeSeparator=s:timeSeparator
+  let l:timeSeparatorSpaced=' '.l:timeSeparator.' '
+  let l:timeSeparatorRe='\s*'.l:timeSeparator.'\s*'
+  let l:timeUnionMarker=s:timeUnionMarker
+  let l:timeUnionMarkerSpaced=' '.l:timeUnionMarker.' '
+  let l:timeStartToEnd=l:datetimeFormatRe.l:timeUnionMarkerSpaced.l:datetimeFormatRe
+
+  if l:l =~ l:timeStartToEnd.l:timeSeparatorRe
+      let l:ts = matchlist(l:l, '\('.l:timeStartToEnd.l:timeSeparatorRe.'\)\+')[0]
+      let l:ts = substitute(l:ts, l:timeSeparatorRe.'$', '', '')
+      let l:ts = substitute(l:ts, l:timeSeparatorRe, l:timeSeparatorSpaced, 'g')
+      let l:ts = split(l:ts, l:timeSeparatorSpaced)
+      for l:ti in range(len(l:ts))
+python3 << EOF
+import vim
+from datetime import datetime
+ 
+formatstr = vim.eval("l:datetimeFormat")
+starttime, endtime = (vim.eval('l:ts[l:ti]').split(vim.eval("l:timeUnionMarkerSpaced")) + [''])[0:2]
+vim.command("let lStartTime = %s" % 
+            (int(datetime.strptime(starttime, formatstr).timestamp()) if starttime else 0))
+vim.command("let lEndTime = %s" %
+            (int(datetime.strptime(endtime, formatstr).timestamp()) if endtime else 0))
+EOF
+        if lStartTime
+          let l:ts[l:ti] = strftime(s:datetimeFormat, s:get_rounded_time(lStartTime, 0))
+          if lEndTime
+                let l:ts[l:ti] .= s:timeUnionMarkerSpaced . strftime(s:datetimeFormat, s:get_rounded_time(lEndTime, 1))
+          endif
+        endif
+        unlet lStartTime
+        unlet lEndTime
+      endfor
+
+      call setline(l:i, join(l:ts, s:timeSeparatorSpaced) . s:timeSeparatorSpaced)
+      call s:update_timespent(l:i)
+  endif
+endfu
+
+fu! s:total_time_filtered(timefilter)
+  let l:time_spents=[]
+  for l:i in range(1,line('$'))
+    let l:l=getline(l:i)
+    let l:ts = []
+    if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
+      let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorRe.'\)\+')[0]
+      let l:ts = substitute(l:ts, s:timeSeparatorRe.'$', '', '')
+      let l:ts = substitute(l:ts, s:timeSeparatorRe, s:timeSeparatorSpaced, 'g')
+      let l:ts = split(l:ts, s:timeSeparatorSpaced)
+    elseif l:l =~ s:timeStartToEnd.s:timeSeparatorFinalRe
+      let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorFinalRe.'\)\+')[0]
+      let l:ts = substitute(l:ts, s:timeSeparatorFinalRe.'$', '', '')
+      let l:ts = substitute(l:ts, s:timeSeparatorFinalRe, s:timeSeparatorSpaced, 'g')
+      let l:ts = split(l:ts, s:timeSeparatorSpaced)
+    endif
+    if len(l:ts)
+      if type(a:timefilter) == v:t_func
+        let l:time_spents += a:timefilter(l:ts)
+      elseif type(a:timefilter) == v:t_string && len(a:timefilter)
+        let l:time_spents += filter(l:ts, 'v:val =~ "'.a:timefilter.'"')
+      else
+        let l:time_spents += l:ts
+      endif
+    endif
+  endfor
+  return s:compute_total_time(l:time_spents)
+endfu
+
+" @function timespent#total_time()
+" return formatted time of all timespent found in the buffer
+fu! timespent#total_time()
+   return s:total_time_filtered(0)
+endfu
+
+" @function timespent#total_time_filtered()
+" return formatted time of all timespent found according a regexp filter
+fu! timespent#total_time_filtered(strfilter)
+   return s:total_time_filtered(a:strfilter)
+endfu
+
+" @function timespent#total_time_today()
+" return formatted time of all timespent found today
+" (include time before midnight if hour < newDayHour)
+fu! timespent#total_time_today()
+   let l:substs = {}
+   let l:substs_yesterday = {}
+   let l:yesterday = 0
+   let l:include_yesterday=(str2nr(strftime('%H')) < s:newDayHour)
+
+   if l:include_yesterday
+     let l:yesterday = localtime() - 86400
+     let l:hours_today = range(0, s:newDayHour - 1)
+     let l:hours_yesterday = range(s:newDayHour, 23)
+   else
+     let l:hours_today =  range(s:newDayHour, 23)
+   fi
+
+   let l:datefmttmp = s:datetimeFormat
+   while len(l:datefmttmp)
+     let l:str_pos = matchstrpos(l:datefmttmp, '%[a-zA-Z]')
+     if l:str_pos[1] == -1
+       break
+     endif
+     let l:time_chr=l:str_pos[0]
+     let l:tref = l:time_chr[1]
+     let l:datefmttmp = l:datefmttmp[l:str_pos[2]:]
+     if l:tref ==# 'Y' || l:tref ==# 'y' || l:tref ==# 'm' || l:tref ==# 'd'
+       let l:substs[l:time_chr] = strftime(l:time_chr)
+       if l:include_yesterday
+         let l:substs_yesterday[l:time_chr] = strftime(l:time_chr, l:yesterday)
+       endif
+     elseif l:tref ==# 'H'
+       let l:substs[l:time_chr] = '\\('.join(map(l:hours_today, 'printf("%02d", v:val)'),'\\|').'\\)'
+       if l:include_yesterday
+         let l:substs_yesterday[l:time_chr] = '\\('.join(map(l:hours_yesterday, 'printf("%02d", v:val)'),'\\|').'\\)'
+       endif
+     elseif l:tref ==# 'M' || l:tref ==# 'S'
+       let l:substs[l:time_chr] = '[0-9][0-9]'
+       let l:substs_yesterday[l:time_chr] = l:substs[l:time_chr]
+     else
+       let l:substs[l:time_chr] = '\w*'
+       let l:substs_yesterday[l:time_chr] = l:substs[l:time_chr]
+     endif
+   endwhile
+
+   let l:possible1 = s:datetimeFormat
+   for l:k in keys(l:substs)
+     let l:possible1 = substitute(l:possible1, '\C'.l:k, l:substs[k], '')
+   endfor
+   if l:include_yesterday
+     let l:possible2 = s:datetimeFormat
+     for l:k in keys(l:substs_yesterday)
+       let l:possible2 = substitute(l:possible2, '\C'.l:k, l:substs_yesterday[k], '')
+     endfor
+   endif
+
+   if l:include_yesterday
+     let TimeFilter = { timespents -> filter(timespents, "v:val =~ '".l:possible1."' || v:val =~ '".l:possible2."'")}
+   else
+     let TimeFilter = { timespents -> filter(timespents, "v:val =~ '".l:possible1."'")}
+   endif
+   return s:total_time_filtered(TimeFilter)
+endfu
+
 
 " Utilities
 "
