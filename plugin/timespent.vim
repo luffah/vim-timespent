@@ -460,16 +460,19 @@ fu! s:update_multi_timespent(start, end)
   endfor
 endfu
 
-fu! s:next_timespent(i, step, onlyopen = 0, circlesearch = 0, imax = 0)
+fu! s:next_timespent(i, step, ...)
+  let l:onlyopen = get(a:000, 0, 0)
+  let l:circlesearch = get(a:000, 1, 0)
+  let l:imax = get(a:000, 2, 0)
   "find a line matching the pattern
   let l:i = a:i
   if line('.') == a:i
     let l:i += a:step
   endif
 
-  let l:e=a:imax ? a:imax : line('$')
+  let l:e=l:imax ? l:imax : line('$')
 
-  if a:onlyopen
+  if l:onlyopen
     while l:i > 0 && l:i <= l:e && getline(l:i) !~ s:timeStartTo.'$'
       let l:i+=a:step
     endwhile
@@ -482,15 +485,15 @@ fu! s:next_timespent(i, step, onlyopen = 0, circlesearch = 0, imax = 0)
     if l:i <= l:e
       exe l:i
       return 1
-    elseif a:circlesearch
-        return s:next_timespent(1, a:step, a:onlyopen, 0, a:i)
+    elseif l:circlesearch
+        return s:next_timespent(1, a:step, l:onlyopen, 0, a:i)
     endif
   else
     if l:i >= 1
       exe l:i
       return 1
-    elseif a:circlesearch
-      return s:next_timespent(line('$'), a:step, a:onlyopen, 0, a:i)
+    elseif l:circlesearch
+      return s:next_timespent(line('$'), a:step, l:onlyopen, 0, a:i)
     endif
   endif
   return 0
