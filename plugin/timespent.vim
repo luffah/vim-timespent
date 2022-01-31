@@ -28,6 +28,22 @@
 "
 " (In theses example the timesheet are written a .txt file )
 "
+" Setup your keys (some may appear useless to you, feel free to change keys):
+"   (vimrc)
+"   " to see the current <leader>, use : let mapleader
+"
+"   nnoremap <leader>r      :TimeSpentAdd<Cr>
+"   nnoremap <leader><C-r>  :TimeSpentExtend<Cr>
+"   nnoremap <leader>R      :TimeSpentClose<Cr>
+"   nnoremap <leader>f      :TimeSpentFinalize<Cr>
+"   vnoremap <leader>f      :TimeSpentFinalize<Cr>
+"   nnoremap <leader>F      :TimeSpentUnFinalize<Cr>
+"   vnoremap <leader>F      :TimeSpentUnFinalize<Cr>
+"   nnoremap <leader><C-n>  :TimeSpentNext<Cr>
+"   nnoremap <leader><C-p>  :TimeSpentPrevious<Cr>
+"   nnoremap <leader><C-o>  :TimeSpentJumpOpenned<Cr>
+"
+"
 " If you put your timesheets in a text file, it will look like:
 "   (Text file)
 "   01:08:10 || 20220125 20:03:01 -> 20220125 20:12:11 | 20220125 23:00:00 -> 20220125 23:59:00 |
@@ -75,21 +91,54 @@
 "
 "   set statusline+=%{TotalTimeToday()}
 "
+" To complete the introduction, you shall discover commands some too :
+"   (Text file)
+"   bla bla
+"   part 1
+"   1 h 15 || 20220125 20:03 -> 20220125 20:12 | 20220125 23:00 -> 20220125 23:59 |
+"   part 2
+"   0 h 10 m || 20220125 20:03 -> 20220125 20:12 |
+"   part 3
+"   0 h 10 m || 20220125 20:03 -> 20220125 20:12 |
 "
+"   (Commands)
+"   " update time spent for 'part 2' (line nume is 5)
+"   :5
+"   :TimeSpentAdd
+"   " By default, commands use current line
+"   " but you can specify an address
+"   :5TimeSpentExtend
+"   :7TimeSpentExtend
+"   " add a new time spent after 'bla bla'
+"   :1TimeSpentAdd
+"   " now a time report exist at line 2, you can add time to it
+"   :2TimeSpentAdd
+"   " jump between time spent
+"   :TimeSpentNext
+"   :TimeSpentPrevious
+"   :TimeSpentJumpOpenned
+"   " jump to first and last time spent (by line order)
+"   :0TimeSpentNext
+"   :$TimeSpentPrevious
+"   " Mark timespent as closed
+"   :2TimeSpentFinalize
+"
+
+
 " @command TimeSpentAdd
-" add datetime on current line.
+" add datetime on current line (or line number specified before).
 " (jump to next line with a different content is found)
-command! TimeSpentAdd call s:add_timespent(line('.'), 0)
+command! -range TimeSpentAdd silent call <SID>add_timespent(<line1>, 0)
 
 " @command TimeSpentExtend
-" extend datetime on current line.
+" extend datetime on current line (or line number specified before).
 " (jump to next line with a different content is found)
-command! TimeSpentExtend call s:add_timespent(line('.'), 1)
+command! -range TimeSpentExtend silent call s:add_timespent(<line1>, 1)
 
 " @command TimeSpentClose
 " add end datetime (if not found) on current line and
 " update duration.
-command! TimeSpentClose silent call s:close_timespent(line('.'))
+command! -range TimeSpentClose silent call s:close_timespent(<line1>)
 
 " @command TimeSpentStop
 " close all timespent lines of the current file
@@ -103,13 +152,18 @@ command! -range TimeSpentUpdate silent call s:update_multi_timespent(<line1>, <l
 " update timestamps from old format in parameter to new format known (from globals)
 command! -range -nargs=+ TimeSpentUpdateTimeFormatFrom silent call s:update_multi_datetime_format(<line1>, <line2>, <q-args>)
 
+
+" @command TimeSpentJumpOpenned
+" Jump to any other timespent. (If used with a line number it will be included)
+command! -range TimeSpentJumpOpenned silent call s:next_timespent(<line1>, 1, 1, 1)
+
 " @command TimeSpentNext
-" Jump to next timespent
-command! TimeSpentNext silent call s:next_timespent(line('.'), 1)
+" Jump to next timespent (If used with a line number it will be included)
+command! -range TimeSpentNext silent call s:next_timespent(<line1>, 1)
 
 " @command TimeSpentPrev
-" Jump to previous timespent
-command! TimeSpentPrev silent call s:next_timespent(line('.'), -1)
+" Jump to previous timespent (If used with a line number it will be included)
+command! -range TimeSpentPrevious silent call s:next_timespent(<line1>, -1)
 
 " @command TimeSpentFinalize
 " Finalize timespent (e.g. for mark it as reported)
@@ -128,7 +182,7 @@ let s:datetimeFormat=get(g:, 'timespentDateFormat', '%Y%m%d %H:%M:%S')
 " @global g:timespentNewDayHour
 " Hour that separate two days. Required by timespent#total_time_today()
 " default : 6
-let s:newDayHour=get(g:, 'timespentNewDayHour', 6)
+let g:timespentNewDayHour=get(g:, 'timespentNewDayHour', 6)
 
 " @global g:timespentTimeFormat
 " Total time format using %H %M %S
@@ -140,44 +194,35 @@ let s:newDayHour=get(g:, 'timespentNewDayHour', 6)
 "     0 || 20200301 20:03:01 -> 20200301 20:52:51 |
 let s:timeFormat=get(g:, 'timespentTimeFormat', '%H:%M:%S')
 
-
 " @global g:timespentDateRounding
 " For a date (checkpoint), precise the rounding mode : second, minute, 5-minutes
 " default : 'second'
-let s:datetimeDateRounding=get(g:, 'timespentDateRounding', 'second')
+let g:timespentDateRounding=get(g:, 'timespentDateRounding', 'second')
 
 " @global g:timespentTimeRounding
 " For the time spent, precise the rounding mode : second, minute, 5-minutes, 15-minutes
 " default : 'second'
-let s:datetimeTimeRounding=get(g:, 'timespentTimeRounding', 'second')
+let g:timespentTimeRounding=get(g:, 'timespentTimeRounding', 'second')
 
 " @global g:timespentTimeRoundingAtLeastFor_1_minute
 " Precise the minimal time in seconds to declare 1 min
 " default : 30
-let s:datetimeRounding1min=get(g:, 'timespentTimeRoundingAtLeastFor_1_minute', 30)
+let g:timespentTimeRoundingAtLeastFor_1_minute=get(g:, 'timespentTimeRoundingAtLeastFor_1_minute', 30)
 
 " @global g:timespentTimeRoundingAtLeastFor_5_minutes
 " Precise the minimal time in seconds to declare 5 min
 " default : 120
-let s:datetimeRounding5min=get(g:, 'timespentTimeRoundingAtLeastFor_5_minutes', 120)
+let g:timespentTimeRoundingAtLeastFor_5_minutes=get(g:, 'timespentTimeRoundingAtLeastFor_5_minutes', 120)
 
 " @global g:timespentTimeRoundingAtLeastFor_15_minutes
 " Precise the minimal time in seconds to declare 15 min
 " default : 300
-let s:datetimeRounding15min=get(g:, 'timespentTimeRoundingAtLeastFor_15_minutes', 300)
+let g:timespentTimeRoundingAtLeastFor_15_minutes=get(g:, 'timespentTimeRoundingAtLeastFor_15_minutes', 300)
 
 " @global g:timespentTimeTakingTime
 " In seconds, time for marking time
 " default : 0
-let s:timeTakingSeconds=get(g:, 'timespentTimeTakingTime', 0)
-
-" FIXME TODO ?
-"" " @global g:timespentFinaliseDateFormat
-"" " Compact the timespent (e.g. for marking it as reported)
-"" " Time format using %H %M %S in groups {{total}} {{day}}, {{duration}}, {{timestamps}}
-"" " default : {{total %H:%M:%S}} {{totalsep |=}} {{day %Y%m%d}} {{timestamps %H:%M:%S}} {{sep |}}
-"let s:finaldatetimeFormat=get(g:, 'timespentFinalizeDateFormat',
-"      \ '(timestamps) %H:%M:%S')
+let g:timespentTimeTakingTime=get(g:, 'timespentTimeTakingTime', 0)
 
 let s:datetimeFormatRe=substitute(substitute(s:datetimeFormat, '%[HMSmdy]\C', '\\d\\d', 'g'), '%Y', '\\d\\d\\d\\d', '')
 let s:timeFormatRe=substitute(s:timeFormat, '%[HMSmdy]\C', '\\d\\d', 'g')
@@ -206,11 +251,11 @@ import datetime
 from math import trunc
  
 formatstr = vim.eval("s:datetimeFormat")
-rounding = vim.eval("s:datetimeTimeRounding")
+rounding = vim.eval("g:timespentTimeRounding")
 sep = vim.eval("s:timeUnionMarker")
-min_sec_minute = int(vim.eval("s:datetimeRounding1min"))
-min_sec_5minutes = int(vim.eval("s:datetimeRounding5min"))
-min_sec_15minutes = int(vim.eval("s:datetimeRounding15min"))
+min_sec_minute = int(vim.eval("g:timespentTimeRoundingAtLeastFor_1_minute"))
+min_sec_5minutes = int(vim.eval("g:timespentTimeRoundingAtLeastFor_5_minutes"))
+min_sec_15minutes = int(vim.eval("g:timespentTimeRoundingAtLeastFor_15_minutes"))
 _unitformat = None
 _hourformat = None
 _minuteformat = None
@@ -343,22 +388,22 @@ fu! s:get_rounded_time(datetime, end)
 
   let l:ret = a:datetime
 
-  if s:datetimeDateRounding == 'minute'
+  if g:timespentDateRounding == 'minute'
      if a:end 
-       let l:ret += 60 - s:datetimeRounding1min
+       let l:ret += 60 - g:timespentTimeRoundingAtLeastFor_1_minute
      endif
      let l:minute_rounding = trunc(l:ret/60)*60
-     if (l:minute_rounding + s:datetimeRounding1min) <= l:ret
+     if (l:minute_rounding + g:timespentTimeRoundingAtLeastFor_1_minute) <= l:ret
         let l:ret = float2nr(l:minute_rounding + 60)
      else
        let l:ret = float2nr(l:minute_rounding)
     endif
-  elseif s:datetimeDateRounding == '5-minutes'
+  elseif g:timespentDateRounding == '5-minutes'
      if a:end 
-       let l:ret += 300 - s:datetimeRounding5min
+       let l:ret += 300 - g:timespentTimeRoundingAtLeastFor_5_minutes
      endif
      let l:minute_rounding = trunc(l:ret/300)*300
-     if (l:minute_rounding + s:datetimeRounding5min) <= l:ret
+     if (l:minute_rounding + g:timespentTimeRoundingAtLeastFor_5_minutes) <= l:ret
         let l:ret = float2nr(l:minute_rounding + 300)
      else
         let l:ret = float2nr(l:minute_rounding)
@@ -371,7 +416,7 @@ endfu
 fu! s:get_localtime(end)
   let l:ret = localtime()
   if !a:end
-     let l:ret -= s:timeTakingSeconds
+     let l:ret -= g:timespentTimeTakingTime
   endif
   return s:get_rounded_time(l:ret, a:end)
 endfu
@@ -415,16 +460,40 @@ fu! s:update_multi_timespent(start, end)
   endfor
 endfu
 
-fu! s:next_timespent(i, step)
+fu! s:next_timespent(i, step, onlyopen = 0, circlesearch = 0, imax = 0)
   "find a line matching the pattern
   let l:i = a:i
-  let l:e=line('$')
-  while l:i > 0 && l:i <= l:e && getline(l:i) !~ s:timeStartToEnd.s:timeSeparatorRe
-    let l:i+=a:step
-  endwhile
-  if l:i != l:e
-    exe l:i
+  if line('.') == a:i
+    let l:i += a:step
   endif
+
+  let l:e=a:imax ? a:imax : line('$')
+
+  if a:onlyopen
+    while l:i > 0 && l:i <= l:e && getline(l:i) !~ s:timeStartTo.'$'
+      let l:i+=a:step
+    endwhile
+  else
+    while l:i > 0 && l:i <= l:e && getline(l:i) !~ s:timeStartTo
+      let l:i+=a:step
+    endwhile
+  endif
+  if a:step > 0
+    if l:i <= l:e
+      exe l:i
+      return 1
+    elseif a:circlesearch
+        return s:next_timespent(1, a:step, a:onlyopen, 0, a:i)
+    endif
+  else
+    if l:i >= 1
+      exe l:i
+      return 1
+    elseif a:circlesearch
+      return s:next_timespent(line('$'), a:step, a:onlyopen, 0, a:i)
+    endif
+  endif
+  return 0
 endfu
 
 
@@ -556,14 +625,14 @@ fu! timespent#total_time_today()
    let l:substs = {}
    let l:substs_yesterday = {}
    let l:yesterday = 0
-   let l:include_yesterday=(str2nr(strftime('%H')) < s:newDayHour)
+   let l:include_yesterday=(str2nr(strftime('%H')) < g:timespentNewDayHour)
 
    if l:include_yesterday
      let l:yesterday = localtime() - 86400
-     let l:hours_today = range(0, s:newDayHour - 1)
-     let l:hours_yesterday = range(s:newDayHour, 23)
+     let l:hours_today = range(0, g:timespentNewDayHour - 1)
+     let l:hours_yesterday = range(g:timespentNewDayHour, 23)
    else
-     let l:hours_today =  range(s:newDayHour, 23)
+     let l:hours_today =  range(g:timespentNewDayHour, 23)
    endif
 
    let l:datefmttmp = s:datetimeFormat
