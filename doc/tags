@@ -2,6 +2,8 @@ TimeSpentAdd	timespent.txt	/*TimeSpentAdd*
 TimeSpentClose	timespent.txt	/*TimeSpentClose*
 TimeSpentExtend	timespent.txt	/*TimeSpentExtend*
 TimeSpentFinalize	timespent.txt	/*TimeSpentFinalize*
+TimeSpentJumpLast	timespent.txt	/*TimeSpentJumpLast*
+TimeSpentJumpOpenned	timespent.txt	/*TimeSpentJumpOpenned*
 TimeSpentNext	timespent.txt	/*TimeSpentNext*
 TimeSpentPrev	timespent.txt	/*TimeSpentPrev*
 TimeSpentStop	timespent.txt	/*TimeSpentStop*
@@ -17,6 +19,7 @@ g:timespentTimeRoundingAtLeastFor_15_minutes	timespent.txt	/*g:timespentTimeRoun
 g:timespentTimeRoundingAtLeastFor_1_minute	timespent.txt	/*g:timespentTimeRoundingAtLeastFor_1_minute*
 g:timespentTimeRoundingAtLeastFor_5_minutes	timespent.txt	/*g:timespentTimeRoundingAtLeastFor_5_minutes*
 g:timespentTimeTakingTime	timespent.txt	/*g:timespentTimeTakingTime*
+g:timespentTotalTimeIncludeOpenned	timespent.txt	/*g:timespentTotalTimeIncludeOpenned*
 timespent	timespent.txt	/*timespent*
 timespent#convert#timewarrior#from_data()	timespent.txt	/*timespent#convert#timewarrior#from_data()*
 timespent#ftime()	timespent.txt	/*timespent#ftime()*

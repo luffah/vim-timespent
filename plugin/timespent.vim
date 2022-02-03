@@ -157,6 +157,10 @@ command! -range -nargs=+ TimeSpentUpdateTimeFormatFrom silent call s:update_mult
 " Jump to any other timespent. (If used with a line number it will be included)
 command! -range TimeSpentJumpOpenned silent call s:next_timespent(<line1>, 1, 1, 1)
 
+" @command TimeSpentJumpLast
+" Jump to the (chronologically) last timespent.
+command! -range TimeSpentJumpLast silent call s:last_timespent()
+
 " @command TimeSpentNext
 " Jump to next timespent (If used with a line number it will be included)
 command! -range TimeSpentNext silent call s:next_timespent(<line1>, 1)
@@ -183,6 +187,11 @@ let s:datetimeFormat=get(g:, 'timespentDateFormat', '%Y%m%d %H:%M:%S')
 " Hour that separate two days. Required by timespent#total_time_today()
 " default : 6
 let g:timespentNewDayHour=get(g:, 'timespentNewDayHour', 6)
+
+" @global g:timespentTotalTimeIncludeOpenned
+" Boolean to include on going time report. Required by timespent#total_time_today()
+" default : 1 
+let g:timespentTotalTimeIncludeOpenned=get(g:, 'timespentTotalTimeIncludeOpenned', 1)
 
 " @global g:timespentTimeFormat
 " Total time format using %H %M %S
@@ -460,9 +469,48 @@ fu! s:update_multi_timespent(start, end)
   endfor
 endfu
 
+
+fu! s:max_datetime(timelist)
+python3 << EOF
+import vim
+import datetime
+ 
+formatstr = vim.eval("s:datetimeFormat")
+times = vim.eval("a:timelist")
+times_dict = {
+   datetime.datetime.strptime(dt, formatstr) : dt
+   for dt in times if dt
+}
+
+vim.command("let lMaxDatetime = '%s'" % times_dict[max(times_dict.keys())])
+EOF
+
+  return lMaxDatetime
+endfu
+
+fu! s:last_timespent()
+  let l:times = []
+  for l:ts in s:total_time_filtered(0, 2)
+    let l:times += split(l:ts, s:timeUnionMarkerRe)
+  endfor
+  if len(l:times)
+    let l:pattern = s:max_datetime(l:times)
+    let l:i = 0
+    while l:i < line('$')
+      let l:i += 1
+      let l:l = getline(l:i)
+      if l:l =~ l:pattern
+        exe l:i
+        break
+      endif
+    endwhile
+  endif
+endfu
+
 fu! s:next_timespent(i, step, ...)
   let l:onlyopen = get(a:000, 0, 0)
   let l:circlesearch = get(a:000, 1, 0)
+  let l:imax = get(a:000, 2, 0)
   let l:imax = get(a:000, 2, 0)
   "find a line matching the pattern
   let l:i = a:i
@@ -580,10 +628,43 @@ EOF
   endif
 endfu
 
-fu! s:total_time_filtered(timefilter)
+fu! s:total_time_filtered(...)
   let l:time_spents=[]
+
+  let TimeFilter = get(a:000, 0, 0)
+  let l:include_openned = get(a:000, 1, 0)
+  let SubjectFilter = get(a:000, 2, 0)
+
+  let l:time_filter_str = ''
+  let l:subject_filter_str = ''
+
+  if type(TimeFilter) == v:t_string && len(TimeFilter)
+    let l:time_filter_str = TimeFilter
+    let TimeFilter = { timespents -> filter(timespents, 'v:val =~ "'.l:time_filter_str.'"') }
+  endif
+  let l:time_filter_exists = (type(TimeFilter) == v:t_func)
+
+
+  if type(SubjectFilter) == v:t_string && len(SubjectFilter)
+    let l:subject_filter_str = SubjectFilter
+    let SubjectFilter = { line -> line =~ l:subject_filter_str }
+  endif
+  let l:subject_filter_exists = (type(SubjectFilter) == v:t_func)
+  let l:skip = l:subject_filter_exists
+
   for l:i in range(1,line('$'))
     let l:l=getline(l:i)
+    if l:l =~ s:timeStartTo
+      if l:skip
+        continue
+      endif
+    else
+      if l:subject_filter_exists
+        let l:skip = SubjectFilter(l:ts)
+      endif
+      continue
+    endif
+
     let l:ts = []
     if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
       let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorRe.'\)\+')[0]
@@ -596,29 +677,54 @@ fu! s:total_time_filtered(timefilter)
       let l:ts = substitute(l:ts, s:timeSeparatorFinalRe, s:timeSeparatorSpaced, 'g')
       let l:ts = split(l:ts, s:timeSeparatorSpaced)
     endif
+    if l:include_openned && l:l =~ s:timeStartTo.'$'
+      if l:include_openned == 1
+        let l:curtime = strftime(s:datetimeFormat, s:get_localtime(1))
+      elseif l:include_openned == 2
+        let l:curtime = ''
+      endif
+      let l:ts += [ matchlist(l:l, s:timeStartTo.'$')[0] . l:curtime ]
+    endif
     if len(l:ts)
-      if type(a:timefilter) == v:t_func
-        let l:time_spents += a:timefilter(l:ts)
-      elseif type(a:timefilter) == v:t_string && len(a:timefilter)
-        let l:time_spents += filter(l:ts, 'v:val =~ "'.a:timefilter.'"')
+      if l:time_filter_exists
+        let l:time_spents += TimeFilter(l:ts)
       else
         let l:time_spents += l:ts
       endif
     endif
   endfor
-  return s:compute_total_time(l:time_spents)
+  return l:time_spents
 endfu
 
 " @function timespent#total_time()
 " return formatted time of all timespent found in the buffer
 fu! timespent#total_time()
-   return s:total_time_filtered(0)
+   return s:compute_total_time(s:total_time_filtered(0))
 endfu
 
-" @function timespent#total_time_filtered()
+" @function timespent#total_time_filtered([timefilter], [subjectfilter])
 " return formatted time of all timespent found according a regexp filter
-fu! timespent#total_time_filtered(strfilter)
-   return s:total_time_filtered(a:strfilter)
+fu! timespent#total_time_filtered(...)
+   let l:filter=0
+   let l:subject_filter=0
+   for l:i in a:000
+     if type(l:i) == v:t_func
+       if !l:filter
+         let l:filter=l:i
+       else
+         l:subject_filter=l:i
+       endif
+     elseif type(l:i) == v:t_str
+       if len(l:i)
+         if l:i =~ '^\d\+$' || l:i =~ s:datetimeFormatRe
+           let l:filter=l:i
+         else
+           let l:subject_filter=l:i
+         endif
+       endif
+     endif
+   endif
+   return s:compute_total_time(s:total_time_filtered(l:filter, 0, l:subject_filter))
 endfu
 
 " @function timespent#total_time_today()
@@ -682,7 +788,8 @@ fu! timespent#total_time_today()
    else
      let TimeFilter = { timespents -> filter(timespents, "v:val =~ '".l:possible1."'")}
    endif
-   return s:total_time_filtered(TimeFilter)
+   let l:timespents = s:total_time_filtered(TimeFilter, g:timespentTotalTimeIncludeOpenned)
+   return s:compute_total_time(l:timespents)
 endfu
 
 

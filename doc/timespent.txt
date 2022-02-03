@@ -37,7 +37,8 @@ FUNCTIONS                                                *timespent-functions*
 timespent#total_time()                               *timespent#total_time()*
     return formatted time of all timespent found in the buffer
 
-timespent#total_time_filtered()             *timespent#total_time_filtered()*
+timespent#total_time_filtered([timefilter], [subjectfilter])
+                                             *timespent#total_time_filtered()*
     return formatted time of all timespent found according a regexp filter
 
 timespent#total_time_today()                   *timespent#total_time_today()*
@@ -60,11 +61,11 @@ timespent#convert#timewarrior#from_data()
 COMMANDS                                                  *timespent-commands*
 
 *TimeSpentAdd*
-    add datetime on current line.
+    add datetime on current line (or line number specified before).
     (jump to next line with a different content is found)
 
 *TimeSpentExtend*
-    extend datetime on current line.
+    extend datetime on current line (or line number specified before).
     (jump to next line with a different content is found)
 
 *TimeSpentClose*
@@ -80,11 +81,17 @@ COMMANDS                                                  *timespent-commands*
 *TimeSpentUpdateTimeFormatFrom*
     update timestamps from old format in parameter to new format known (from globals)
 
+*TimeSpentJumpOpenned*
+    Jump to any other timespent. (If used with a line number it will be included)
+
+*TimeSpentJumpLast*
+    Jump to the (chronologically) last timespent.
+
 *TimeSpentNext*
-    Jump to next timespent
+    Jump to next timespent (If used with a line number it will be included)
 
 *TimeSpentPrev*
-    Jump to previous timespent
+    Jump to previous timespent (If used with a line number it will be included)
 
 *TimeSpentFinalize*
     Finalize timespent (e.g. for mark it as reported)
@@ -103,6 +110,10 @@ GLOBALS                                                    *timespent-globals*
 *g:timespentNewDayHour*
     Hour that separate two days. Required by timespent#total_time_today()
     default : 6
+
+*g:timespentTotalTimeIncludeOpenned*
+    Boolean to include on going time report. Required by timespent#total_time_today()
+    default : 1 
 
 *g:timespentTimeFormat*
     Total time format using %H %M %S
@@ -143,6 +154,22 @@ EXAMPLES                                                  *timespent-examples*
 
 
 (In theses example the timesheet are written a .txt file )
+
+Setup your keys (some may appear useless to you, feel free to change keys):
+  (vimrc)
+  " to see the current <leader>, use : let mapleader
+
+  nnoremap <leader>r      :TimeSpentAdd<Cr>
+  nnoremap <leader><C-r>  :TimeSpentExtend<Cr>
+  nnoremap <leader>R      :TimeSpentClose<Cr>
+  nnoremap <leader>f      :TimeSpentFinalize<Cr>
+  vnoremap <leader>f      :TimeSpentFinalize<Cr>
+  nnoremap <leader>F      :TimeSpentUnFinalize<Cr>
+  vnoremap <leader>F      :TimeSpentUnFinalize<Cr>
+  nnoremap <leader><C-n>  :TimeSpentNext<Cr>
+  nnoremap <leader><C-p>  :TimeSpentPrevious<Cr>
+  nnoremap <leader><C-o>  :TimeSpentJumpOpenned<Cr>
+
 
 If you put your timesheets in a text file, it will look like:
   (Text file)
@@ -191,6 +218,37 @@ To setup that:
 
   set statusline+=%{TotalTimeToday()}
 
+To complete the introduction, you shall discover commands some too :
+  (Text file)
+  bla bla
+  part 1
+  1 h 15 || 20220125 20:03 -> 20220125 20:12 | 20220125 23:00 -> 20220125 23:59 |
+  part 2
+  0 h 10 m || 20220125 20:03 -> 20220125 20:12 |
+  part 3
+  0 h 10 m || 20220125 20:03 -> 20220125 20:12 |
+
+  (Commands)
+  " update time spent for 'part 2' (line nume is 5)
+  :5
+  :TimeSpentAdd
+  " By default, commands use current line
+  " but you can specify an address
+  :5TimeSpentExtend
+  :7TimeSpentExtend
+  " add a new time spent after 'bla bla'
+  :1TimeSpentAdd
+  " now a time report exist at line 2, you can add time to it
+  :2TimeSpentAdd
+  " jump between time spent
+  :TimeSpentNext
+  :TimeSpentPrevious
+  :TimeSpentJumpOpenned
+  " jump to first and last time spent (by line order)
+  :0TimeSpentNext
+  :$TimeSpentPrevious
+  " Mark timespent as closed
+  :2TimeSpentFinalize
 
 
 vim:tw=78:ts=8:ft=help:norl:
