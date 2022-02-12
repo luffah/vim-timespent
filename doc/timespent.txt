@@ -45,6 +45,18 @@ timespent#total_time_today()                   *timespent#total_time_today()*
     return formatted time of all timespent found today
     (include time before midnight if hour < newDayHour)
 
+timespent#total_nth_day(nb_days, [end_offset=0], [week_mode=0])
+                                                   *timespent#total_nth_day()*
+    return formatted time of all timespent found from days
+
+timespent#total_previous_week()             *timespent#total_previous_week()*
+    return formatted time of all timespent previous week
+    = timespent#total_nth_day(0, 1, 1)
+
+timespent#total_this_week()                     *timespent#total_this_week()*
+    return formatted time of all timespent this week
+    = timespent#total_nth_day(0, 0, 1)
+
 timespent#ftime(year,month,day,hours,minutes,seconds)     *timespent#ftime()*
     return formatted date as specified in |g:timespentDateFormat|
 

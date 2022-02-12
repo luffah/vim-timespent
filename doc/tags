@@ -23,6 +23,9 @@ g:timespentTotalTimeIncludeOpenned	timespent.txt	/*g:timespentTotalTimeIncludeOp
 timespent	timespent.txt	/*timespent*
 timespent#convert#timewarrior#from_data()	timespent.txt	/*timespent#convert#timewarrior#from_data()*
 timespent#ftime()	timespent.txt	/*timespent#ftime()*
+timespent#total_nth_day()	timespent.txt	/*timespent#total_nth_day()*
+timespent#total_previous_week()	timespent.txt	/*timespent#total_previous_week()*
+timespent#total_this_week()	timespent.txt	/*timespent#total_this_week()*
 timespent#total_time()	timespent.txt	/*timespent#total_time()*
 timespent#total_time_filtered()	timespent.txt	/*timespent#total_time_filtered()*
 timespent#total_time_today()	timespent.txt	/*timespent#total_time_today()*

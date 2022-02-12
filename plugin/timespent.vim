@@ -254,6 +254,7 @@ let s:timeToEnd=s:timeUnionMarkerSpaced.s:datetimeFormatRe
 
 fu! s:compute_total_time(timestamps)
   " return total time from list of ["timebegin -> timeend", ]
+  let l:outputTimeFormat = get(b:, 'timespent_force_output_time_format', s:timeFormat)
 python3 << EOF
 import vim
 import datetime
@@ -284,7 +285,7 @@ for i in list(vim.eval("a:timestamps")):
     except Exception as e:
         continue
 
-res = vim.eval("s:timeFormat")
+res = vim.eval("l:outputTimeFormat")
 seconds=total.total_seconds()
 
 if rounding == 'second':
@@ -790,6 +791,79 @@ fu! timespent#total_time_today()
    endif
    let l:timespents = s:total_time_filtered(TimeFilter, g:timespentTotalTimeIncludeOpenned)
    return s:compute_total_time(l:timespents)
+endfu
+
+fu! s:total_on_days(days)
+   " total time on days given from 00:00 to 23:59 (newDayHour is not used here)
+   let l:substs = {}
+
+   let l:days = []
+
+   let l:datefmt = s:datetimeFormat
+   let l:startidx = 0
+   while 1
+     let l:str_pos = matchstrpos(l:datefmt, '%[a-zA-Z]', l:startidx)
+     if l:str_pos[1] == -1
+       break
+     endif
+     let l:startidx = l:str_pos[2]
+     let l:time_chr=l:str_pos[0]
+     let l:tref = l:time_chr[1]
+
+     if l:tref ==# 'Y' || l:tref ==# 'y' || l:tref ==# 'm' || l:tref ==# 'd'
+       continue
+     elseif l:tref ==# 'H' || l:tref ==# 'M' || l:tref ==# 'S'
+       let l:datefmt = substitute(l:datefmt, '\C'.l:time_chr, '[0-9][0-9]', 'g')
+     else
+       let l:datefmt = substitute(l:datefmt, '\C'.l:time_chr, '\w*', 'g')
+     endif
+   endwhile
+
+   for l:i in a:days
+     call add(l:days, strftime(l:datefmt, l:i))
+   endfor
+
+   let l:possibles = '\('.join(l:days, '\|').'\)'
+   let TimeFilter = { timespents -> filter(timespents, "v:val =~ '".l:possibles."'")}
+   let l:timespents = s:total_time_filtered(TimeFilter, g:timespentTotalTimeIncludeOpenned)
+   return s:compute_total_time(l:timespents)
+endfu
+
+" @function timespent#total_nth_day(nb_days, [end_offset=0], [week_mode=0])
+" return formatted time of all timespent found from days
+fu! timespent#total_nth_day(nb_days, ...)
+  let l:end_offset = get(a:000, 0, 0) 
+  let l:weekmode = get(a:000, 1, 0) 
+  let l:days = []
+  let l:day = localtime()
+  let l:nb_days = a:nb_days
+
+  if l:weekmode   " then this is weeks
+    let l:week_offset = (a:nb_days) * 7
+    let l:nb_days = (str2nr(strftime('%u', l:day)) - 1) + l:week_offset
+    let l:day = l:day - ( l:end_offset * 7 * 86400 )
+  else
+    let l:day = l:day - (l:end_offset * 86400)
+  endif
+
+  for l:i in range(0, l:nb_days)
+    call add(l:days, l:day - (l:i * 86400))
+  endfor
+  return s:total_on_days(l:days)
+endfu
+
+" @function timespent#total_previous_week()
+" return formatted time of all timespent previous week
+" = timespent#total_nth_day(0, 1, 1)
+fu! timespent#total_previous_week()
+   return timespent#total_nth_day(0, 1, 1)
+endfu
+
+" @function timespent#total_this_week()
+" return formatted time of all timespent this week
+" = timespent#total_nth_day(0, 0, 1)
+fu! timespent#total_past_week()
+   return timespent#total_nth_day(0, 0, 1)
 endfu
 
 
