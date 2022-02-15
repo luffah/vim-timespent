@@ -159,15 +159,15 @@ command! -range TimeSpentJumpOpenned silent call s:next_timespent(<line1>, 1, 1,
 
 " @command TimeSpentJumpLast
 " Jump to the (chronologically) last timespent.
-command! -range TimeSpentJumpLast silent call s:last_timespent()
+command! TimeSpentJumpLast silent call s:last_timespent()
 
 " @command TimeSpentJumpBefore
 " Jump to the (chronologically) before timespent.
-command! -range TimeSpentJumpBefore silent call s:before_timespent()
+command! TimeSpentJumpBefore silent call s:before_timespent()
 
 " @command TimeSpentJumpAfter
 " Jump to the (chronologically) after timespent.
-command! -range TimeSpentJumpAfter silent call s:after_timespent()
+command! TimeSpentJumpAfter silent call s:after_timespent()
 
 " @command TimeSpentNext
 " Jump to next timespent (If used with a line number it will be included)
@@ -530,14 +530,21 @@ endfu
 
 fu! s:jump_to_datetime(pattern)
   let l:i = 0
+  let l:positions = []
   while l:i < line('$')
     let l:i += 1
     let l:l = getline(l:i)
     if l:l =~ a:pattern
-      call setpos('.', [bufnr(), l:i, strridx(l:l, a:pattern), 0])
-      break
+      call add(l:positions, [l:i, strridx(l:l, a:pattern)])
     endif
   endwhile
+  let l:p = l:positions[0]
+  if len(l:positions) > 1
+    if l:p[0] == line('.')
+      let l:p = l:positions[1]
+    endif
+  endif
+  call setpos('.', [bufnr()] + l:p + [0])
 endfu
 
 fu! s:get_nearest_time_in_line(linenr, col)
@@ -713,6 +720,8 @@ endfu
 
 
 fu! s:split_timespents(lstr, include_openned)
+    "  :param: lstr               the line
+    "  :param: include_openned    0 = no; 1 = end is localtime; 2 = keep original 
     let l:l = a:lstr
     let l:ts = []
     if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
