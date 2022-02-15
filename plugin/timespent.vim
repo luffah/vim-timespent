@@ -161,6 +161,14 @@ command! -range TimeSpentJumpOpenned silent call s:next_timespent(<line1>, 1, 1,
 " Jump to the (chronologically) last timespent.
 command! -range TimeSpentJumpLast silent call s:last_timespent()
 
+" @command TimeSpentJumpBefore
+" Jump to the (chronologically) before timespent.
+command! -range TimeSpentJumpBefore silent call s:before_timespent()
+
+" @command TimeSpentJumpAfter
+" Jump to the (chronologically) after timespent.
+command! -range TimeSpentJumpAfter silent call s:after_timespent()
+
 " @command TimeSpentNext
 " Jump to next timespent (If used with a line number it will be included)
 command! -range TimeSpentNext silent call s:next_timespent(<line1>, 1)
@@ -471,22 +479,105 @@ fu! s:update_multi_timespent(start, end)
 endfu
 
 
-fu! s:max_datetime(timelist)
+fu! s:min_datetime(timelist, after)
 python3 << EOF
 import vim
 import datetime
  
 formatstr = vim.eval("s:datetimeFormat")
 times = vim.eval("a:timelist")
+after_date = vim.eval("a:after")
 times_dict = {
-   datetime.datetime.strptime(dt, formatstr) : dt
-   for dt in times if dt
+    datetime.datetime.strptime(dt, formatstr) : dt
+    for dt in times if dt
 }
-
-vim.command("let lMaxDatetime = '%s'" % times_dict[max(times_dict.keys())])
+if after_date:
+    after_date = datetime.datetime.strptime(after_date, formatstr)
+    times_dict = {
+        dt : str_dt for
+        dt , str_dt in times_dict.items()
+        if dt > after_date
+    }
+vim.command("let lDatetime = '%s'" % times_dict[min(times_dict.keys())])
 EOF
+  return lDatetime
+endfu
 
-  return lMaxDatetime
+fu! s:max_datetime(timelist, before)
+python3 << EOF
+import vim
+import datetime
+
+formatstr = vim.eval("s:datetimeFormat")
+times = vim.eval("a:timelist")
+before_date = vim.eval("a:before")
+times_dict = {
+    datetime.datetime.strptime(dt, formatstr) : dt
+    for dt in times if dt
+}
+if before_date:
+    before_date = datetime.datetime.strptime(before_date, formatstr)
+    times_dict = {
+        dt : str_dt for
+        dt , str_dt in times_dict.items()
+        if dt < before_date
+    }
+
+vim.command("let lDatetime = '%s'" % times_dict[max(times_dict.keys())])
+EOF
+  return lDatetime
+endfu
+
+fu! s:jump_to_datetime(pattern)
+  let l:i = 0
+  while l:i < line('$')
+    let l:i += 1
+    let l:l = getline(l:i)
+    if l:l =~ a:pattern
+      call setpos('.', [bufnr(), l:i, strridx(l:l, a:pattern), 0])
+      break
+    endif
+  endwhile
+endfu
+
+fu! s:get_nearest_time_in_line(linenr, col)
+  let l:l = getline(a:linenr)
+  let l:times = []
+  for l:ts in s:split_timespents(l:l, 2)
+    let l:times += split(l:ts, s:timeUnionMarkerRe)
+  endfor
+  let l:ret = ''
+  let l:nearest = len(l:l)
+  for l:i in l:times
+    " find closest time to the cursor by looking
+    " diff with the center of the time word
+    let l:diff = abs(a:col - (strridx(l:l, l:i) + (len(l:i) / 2) - 1))
+    if l:diff < l:nearest
+      let l:nearest = l:diff
+      let l:ret = l:i
+    endif
+  endfor
+  return l:ret
+endfu
+fu! s:before_timespent()
+  let l:times = []
+  for l:ts in s:total_time_filtered(0, 2)
+    let l:times += split(l:ts, s:timeUnionMarkerRe)
+  endfor
+  if len(l:times)
+    let l:last_time_in_line = s:get_nearest_time_in_line(line('.'), col('.'))
+    call s:jump_to_datetime(s:max_datetime(l:times, l:last_time_in_line))
+  endif
+endfu
+fu! s:after_timespent()
+  let l:times = []
+  for l:ts in s:total_time_filtered(0, 2)
+    let l:times += split(l:ts, s:timeUnionMarkerRe)
+  endfor
+  if len(l:times)
+    let l:last_time_in_line = s:get_nearest_time_in_line(line('.'), col('.'))
+    call s:jump_to_datetime(s:max_datetime(l:times, l:last_time_in_line))
+  endif
 endfu
 
 fu! s:last_timespent()
@@ -495,16 +586,7 @@ fu! s:last_timespent()
     let l:times += split(l:ts, s:timeUnionMarkerRe)
   endfor
   if len(l:times)
-    let l:pattern = s:max_datetime(l:times)
-    let l:i = 0
-    while l:i < line('$')
-      let l:i += 1
-      let l:l = getline(l:i)
-      if l:l =~ l:pattern
-        exe l:i
-        break
-      endif
-    endwhile
+    call s:jump_to_datetime(s:max_datetime(l:times, ''))
   endif
 endfu
 
@@ -629,12 +711,41 @@ EOF
   endif
 endfu
 
+
+fu! s:split_timespents(lstr, include_openned)
+    let l:l = a:lstr
+    let l:ts = []
+    if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
+      let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorRe.'\)\+')[0]
+      let l:ts = substitute(l:ts, s:timeSeparatorRe.'$', '', '')
+      let l:ts = substitute(l:ts, s:timeSeparatorRe, s:timeSeparatorSpaced, 'g')
+      let l:ts = split(l:ts, s:timeSeparatorSpaced)
+    elseif l:l =~ s:timeStartToEnd.s:timeSeparatorFinalRe
+      let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorFinalRe.'\)\+')[0]
+      let l:ts = substitute(l:ts, s:timeSeparatorFinalRe.'$', '', '')
+      let l:ts = substitute(l:ts, s:timeSeparatorFinalRe, s:timeSeparatorSpaced, 'g')
+      let l:ts = split(l:ts, s:timeSeparatorSpaced)
+    endif
+    if a:include_openned && l:l =~ s:timeStartTo.'$'
+      if a:include_openned == 1
+        let l:curtime = strftime(s:datetimeFormat, s:get_localtime(1))
+      elseif a:include_openned == 2
+        let l:curtime = ''
+      endif
+      let l:ts += [ matchlist(l:l, s:timeStartTo.'$')[0] . l:curtime ]
+    endif
+
+    return l:ts
+endfu
+
 fu! s:total_time_filtered(...)
   let l:time_spents=[]
 
   let TimeFilter = get(a:000, 0, 0)
   let l:include_openned = get(a:000, 1, 0)
   let SubjectFilter = get(a:000, 2, 0)
+  let l:range_start = get(a:000, 3, 1)
+  let l:range_end = get(a:000, 4, line('$'))
 
   let l:time_filter_str = ''
   let l:subject_filter_str = ''
@@ -653,7 +764,7 @@ fu! s:total_time_filtered(...)
   let l:subject_filter_exists = (type(SubjectFilter) == v:t_func)
   let l:skip = l:subject_filter_exists
 
-  for l:i in range(1,line('$'))
+  for l:i in range(l:range_start,l:range_end)
     let l:l=getline(l:i)
     if l:l =~ s:timeStartTo
       if l:skip
@@ -665,27 +776,7 @@ fu! s:total_time_filtered(...)
       endif
       continue
     endif
-
-    let l:ts = []
-    if l:l =~ s:timeStartToEnd.s:timeSeparatorRe
-      let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorRe.'\)\+')[0]
-      let l:ts = substitute(l:ts, s:timeSeparatorRe.'$', '', '')
-      let l:ts = substitute(l:ts, s:timeSeparatorRe, s:timeSeparatorSpaced, 'g')
-      let l:ts = split(l:ts, s:timeSeparatorSpaced)
-    elseif l:l =~ s:timeStartToEnd.s:timeSeparatorFinalRe
-      let l:ts = matchlist(l:l, '\('.s:timeStartToEnd.s:timeSeparatorFinalRe.'\)\+')[0]
-      let l:ts = substitute(l:ts, s:timeSeparatorFinalRe.'$', '', '')
-      let l:ts = substitute(l:ts, s:timeSeparatorFinalRe, s:timeSeparatorSpaced, 'g')
-      let l:ts = split(l:ts, s:timeSeparatorSpaced)
-    endif
-    if l:include_openned && l:l =~ s:timeStartTo.'$'
-      if l:include_openned == 1
-        let l:curtime = strftime(s:datetimeFormat, s:get_localtime(1))
-      elseif l:include_openned == 2
-        let l:curtime = ''
-      endif
-      let l:ts += [ matchlist(l:l, s:timeStartTo.'$')[0] . l:curtime ]
-    endif
+    let l:ts = s:split_timespents(l:l, l:include_openned)
     if len(l:ts)
       if l:time_filter_exists
         let l:time_spents += TimeFilter(l:ts)
